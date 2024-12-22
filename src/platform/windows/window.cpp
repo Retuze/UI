@@ -4,7 +4,7 @@
 namespace ui {
 namespace windows {
 
-WindowsWindow::WindowsWindow(const std::wstring& title, int width, int height)
+WindowsWindow::WindowsWindow(const char* title, int width, int height)
     : m_hwnd(nullptr)
     , m_memDC(nullptr)
     , m_bitmap(nullptr)
@@ -12,7 +12,7 @@ WindowsWindow::WindowsWindow(const std::wstring& title, int width, int height)
     , m_width(width)
     , m_height(height)
     , m_buffer(width * height * 4)
-    , m_title(title)
+    , m_title(Utf8ToWide(title))
 {
     static const wchar_t CLASS_NAME[] = L"UIFrameworkWindow";
     
@@ -37,7 +37,7 @@ WindowsWindow::WindowsWindow(const std::wstring& title, int width, int height)
     m_hwnd = CreateWindowExW(
         0,
         CLASS_NAME,
-        title.c_str(),
+        m_title.c_str(),
         WS_OVERLAPPEDWINDOW,
         CW_USEDEFAULT, CW_USEDEFAULT,
         rect.right - rect.left,
@@ -76,6 +76,7 @@ void WindowsWindow::Close() {
 }
 
 void WindowsWindow::Update() {
+    InvalidateRect(m_hwnd, nullptr, FALSE);
     PresentBuffer();
 }
 
@@ -116,22 +117,21 @@ void WindowsWindow::SetPosition(const Point& pos) {
     SetWindowPos(m_hwnd, nullptr, pos.x, pos.y, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
 }
 
-std::wstring WindowsWindow::GetTitle() const {
-    return m_title;
+const char* WindowsWindow::GetTitle() const {
+    m_cachedUtf8Title = WideToUtf8(m_title);
+    return m_cachedUtf8Title.c_str();
 }
 
-void WindowsWindow::SetTitle(const std::wstring& title) {
-    m_title = title;
-    SetWindowTextW(m_hwnd, title.c_str());
+void WindowsWindow::SetTitle(const char* title) {
+    m_title = Utf8ToWide(title);
+    SetWindowTextW(m_hwnd, m_title.c_str());
 }
 
 void WindowsWindow::RunMessageLoop() {
     MSG msg = {};
-    while (!m_shouldClose) {
-        if (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
-            TranslateMessage(&msg);
-            DispatchMessage(&msg);
-        }
+    while (!m_shouldClose && GetMessage(&msg, nullptr, 0, 0)) {
+        TranslateMessage(&msg);
+        DispatchMessage(&msg);
     }
 }
 
@@ -241,12 +241,34 @@ FontPtr WindowsWindow::CreateFontObject() {
     return std::make_shared<FreetypeFont>(this);
 }
 
-void WindowsWindow::RenderText(const std::wstring& text, int x, int y, 
+void WindowsWindow::RenderText(const char* text, int x, int y, 
                              const Color& color, FontPtr font) {
     if (font) {
         font->RenderText(text, x, y, color);
     }
 }
 
+std::wstring WindowsWindow::Utf8ToWide(const char* utf8Str) {
+    if (!utf8Str) return std::wstring();
+    
+    int wideLength = MultiByteToWideChar(CP_UTF8, 0, utf8Str, -1, nullptr, 0);
+    if (wideLength == 0) return std::wstring();
+    
+    std::wstring wideStr(wideLength - 1, 0);
+    MultiByteToWideChar(CP_UTF8, 0, utf8Str, -1, &wideStr[0], wideLength);
+    return wideStr;
+}
+
+std::string WindowsWindow::WideToUtf8(const std::wstring& wideStr) {
+    int utf8Length = WideCharToMultiByte(CP_UTF8, 0, wideStr.c_str(), -1, 
+                                       nullptr, 0, nullptr, nullptr);
+    if (utf8Length == 0) return std::string();
+    
+    std::string utf8Str(utf8Length - 1, 0);
+    WideCharToMultiByte(CP_UTF8, 0, wideStr.c_str(), -1, 
+                       &utf8Str[0], utf8Length, nullptr, nullptr);
+    return utf8Str;
+}
+
 } // namespace windows
-} // namespace ui 
+} // namespace ui

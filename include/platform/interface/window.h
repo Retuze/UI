@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <string>
 #include "font/font.h"
+#include <functional>
 
 namespace ui {
 
@@ -40,8 +41,8 @@ public:
     virtual void SetSize(const Size& size) = 0;
     virtual Point GetPosition() const = 0;
     virtual void SetPosition(const Point& pos) = 0;
-    virtual std::wstring GetTitle() const = 0;
-    virtual void SetTitle(const std::wstring& title) = 0;
+    virtual const char* GetTitle() const = 0;
+    virtual void SetTitle(const char* title) = 0;
     
     // 消息循环
     virtual void RunMessageLoop() = 0;
@@ -49,8 +50,9 @@ public:
     
     // 字体渲染 - 重命名方法避免冲突
     virtual FontPtr CreateFontObject() = 0;
-    virtual void RenderText(const std::wstring& text, int x, int y, 
+    virtual void RenderText(const char* text, int x, int y, 
                           const Color& color, FontPtr font) = 0;
+    
 };
 
 } // namespace ui 

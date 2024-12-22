@@ -9,7 +9,7 @@ namespace windows {
 
 class WindowsWindow : public IWindow {
 public:
-    WindowsWindow(const std::wstring& title, int width, int height);
+    WindowsWindow(const char* title, int width, int height);
     ~WindowsWindow() override;
 
     // 禁止拷贝
@@ -29,16 +29,17 @@ public:
     void SetSize(const Size& size) override;
     Point GetPosition() const override;
     void SetPosition(const Point& pos) override;
-    std::wstring GetTitle() const override;
-    void SetTitle(const std::wstring& title) override;
+    const char* GetTitle() const override;
+    void SetTitle(const char* title) override;
     
     void RunMessageLoop() override;
     bool IsRunning() const override;
 
     // 字体支持
     FontPtr CreateFontObject() override;
-    void RenderText(const std::wstring& text, int x, int y, 
+    void RenderText(const char* text, int x, int y, 
                    const Color& color, FontPtr font) override;
+
 
 private:
     static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
@@ -56,6 +57,11 @@ private:
     int m_height;
     std::vector<uint8_t> m_buffer;
     std::wstring m_title;
+    mutable std::string m_cachedUtf8Title;
+
+    static std::wstring Utf8ToWide(const char* utf8Str);
+    static std::string WideToUtf8(const std::wstring& wideStr);
+
 }; 
 
 } // namespace windows

@@ -10,9 +10,9 @@ public:
     FreetypeFont(class IWindow* window);
     ~FreetypeFont() override;
 
-    bool LoadFromFile(const std::wstring& path, float size) override;
-    void RenderText(const std::wstring& text, int x, int y, const Color& color) override;
-    int GetTextWidth(const std::wstring& text) const override;
+    bool LoadFromFile(const char* path, float size) override;
+    void RenderText(const char* text, int x, int y, const Color& color) override;
+    int GetTextWidth(const char* text) const override;
     int GetTextHeight() const override;
 
 private:
@@ -20,6 +20,9 @@ private:
     FT_Face m_face;
     class IWindow* m_window;
     int m_size;
+
+    static std::wstring Utf8ToWide(const char* utf8Str);
+    static std::string WideToUtf8(const std::wstring& wideStr);
 };
 
 } // namespace ui 

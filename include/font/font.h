@@ -16,9 +16,9 @@ class IFont {
 public:
     virtual ~IFont() = default;
     
-    virtual bool LoadFromFile(const std::wstring& path, float size) = 0;
-    virtual void RenderText(const std::wstring& text, int x, int y, const Color& color) = 0;
-    virtual int GetTextWidth(const std::wstring& text) const = 0;
+    virtual bool LoadFromFile(const char* path, float size) = 0;
+    virtual void RenderText(const char* text, int x, int y, const Color& color) = 0;
+    virtual int GetTextWidth(const char* text) const = 0;
     virtual int GetTextHeight() const = 0;
 };
 
