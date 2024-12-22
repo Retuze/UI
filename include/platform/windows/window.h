@@ -2,6 +2,7 @@
 #include "platform/interface/window.h"
 #include <windows.h>
 #include <vector>
+#include "font/freetype_font.h"
 
 namespace ui {
 namespace windows {
@@ -33,6 +34,11 @@ public:
     
     void RunMessageLoop() override;
     bool IsRunning() const override;
+
+    // 字体支持
+    FontPtr CreateFontObject() override;
+    void RenderText(const std::wstring& text, int x, int y, 
+                   const Color& color, FontPtr font) override;
 
 private:
     static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);

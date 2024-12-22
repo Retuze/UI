@@ -237,5 +237,16 @@ void WindowsWindow::CenterWindow() {
     SetWindowPos(m_hwnd, nullptr, x, y, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
 }
 
+FontPtr WindowsWindow::CreateFontObject() {
+    return std::make_shared<FreetypeFont>(this);
+}
+
+void WindowsWindow::RenderText(const std::wstring& text, int x, int y, 
+                             const Color& color, FontPtr font) {
+    if (font) {
+        font->RenderText(text, x, y, color);
+    }
+}
+
 } // namespace windows
 } // namespace ui 

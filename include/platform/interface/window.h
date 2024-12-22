@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <string>
+#include "font/font.h"
 
 namespace ui {
 
@@ -45,6 +46,11 @@ public:
     // 消息循环
     virtual void RunMessageLoop() = 0;
     virtual bool IsRunning() const = 0;
+    
+    // 字体渲染 - 重命名方法避免冲突
+    virtual FontPtr CreateFontObject() = 0;
+    virtual void RenderText(const std::wstring& text, int x, int y, 
+                          const Color& color, FontPtr font) = 0;
 };
 
 } // namespace ui 
