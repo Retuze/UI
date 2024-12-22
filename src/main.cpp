@@ -1,26 +1,19 @@
-#include "image_viewer.h"
-#include <vector>
+#include "platform/windows/window.h"
 
 int main() {
-    ImageViewer viewer(L"Test Image", 400, 300);
+    ui::windows::WindowsWindow window(L"UI Framework Demo", 800, 600);
     
-    // 创建一个红色渐变的测试图像
-    std::vector<uint8_t> imageData(400 * 300 * 4);
-    for (int y = 0; y < 300; ++y) {
-        for (int x = 0; x < 400; ++x) {
-            int index = (y * 400 + x) * 4;
-            imageData[index + 0] = static_cast<uint8_t>(x * 255 / 400);  // B
-            imageData[index + 1] = 0;                                     // G
-            imageData[index + 2] = 0;                                     // R
-            imageData[index + 3] = 255;                                   // A
+    // 绘制一个渐变
+    for (int y = 0; y < window.GetSize().height; ++y) {
+        for (int x = 0; x < window.GetSize().width; ++x) {
+            uint8_t intensity = static_cast<uint8_t>(x * 255 / window.GetSize().width);
+            window.SetPixel(x, y, 0, 0, intensity);
         }
     }
     
-    viewer.ShowImage(imageData.data(), 400, 300);
-    
-    while (viewer.ProcessMessages()) {
-        Sleep(10);
-    }
+    window.Show();
+    window.Update();
+    window.RunMessageLoop();
     
     return 0;
 } 
