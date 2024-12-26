@@ -32,4 +32,45 @@ void Widget::removeChild(Widget* child) {
         (*it)->parent = nullptr;
         children.erase(it);
     }
+}
+
+bool Widget::dispatchEvent(const Event& event) {
+    // 先给子控件处理事件的机会
+    for (auto it = children.rbegin(); it != children.rend(); ++it) {
+        if ((*it)->dispatchEvent(event)) {
+            return true;
+        }
+    }
+    
+    // 如果子控件没有处理，自己处理
+    return onEvent(event);
+}
+
+bool Widget::onEvent(const Event& event) {
+    switch (event.type) {
+        case EventType::MousePress:
+            return onMousePress(event);
+        case EventType::MouseRelease:
+            return onMouseRelease(event);
+        case EventType::MouseMove:
+            return onMouseMove(event);
+        default:
+            return false;
+    }
+}
+
+bool Widget::onMousePress(const Event& event) {
+    return false;
+}
+
+bool Widget::onMouseRelease(const Event& event) {
+    return false;
+}
+
+bool Widget::onMouseMove(const Event& event) {
+    return false;
+}
+
+void Widget::setFocus(bool focus) {
+    this->focused = focus;
 } 

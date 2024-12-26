@@ -2,6 +2,7 @@
 #include "core/types.h"
 #include "core/event.h"
 #include "graphics/renderer.h"
+#include <vector>
 
 class Widget {
 public:
@@ -20,10 +21,24 @@ public:
     
     void addChild(Widget* child);
     void removeChild(Widget* child);
+    
+    // 事件处理
+    virtual bool dispatchEvent(const Event& event);
+    virtual bool onEvent(const Event& event);
+    
+    // 焦点管理
+    bool hasFocus() const { return focused; }
+    virtual void setFocus(bool focus);
 
 protected:
     Rect bounds;
     Widget* parent;
     std::vector<Widget*> children;
     bool visible;
+    bool focused = false;
+    
+    // 事件处理辅助方法
+    virtual bool onMousePress(const Event& event);
+    virtual bool onMouseRelease(const Event& event);
+    virtual bool onMouseMove(const Event& event);
 }; 

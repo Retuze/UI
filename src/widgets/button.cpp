@@ -9,7 +9,7 @@ void Button::draw(Renderer* renderer) {
 }
 
 bool Button::handleEvent(const Event& event) {
-    if (!bounds.contains({event.data.mousePos.x, event.data.mousePos.y})) {
+    if (!bounds.contains(event.position)) {
         return false;
     }
 
