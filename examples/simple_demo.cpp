@@ -1,45 +1,84 @@
+#include "core/debug.h"
+#include "graphics/gdi_renderer.h"
 #include "graphics/renderer.h"
 #include "graphics/font_manager.h"
 #include "widgets/text_view.h"
+#include "widgets/button.h"
+#include "layout/layout.h"
 #include <memory>
 #include <chrono>
 #include <thread>
+#include <iostream>
 
 int main() {
-    auto renderer = Renderer::create(800, 600, "Widgets Test");
-    if (!renderer) {
-        return 1;
-    }
+    Debug::Initialize();
     
-    // 初始化字体管理器
-    auto& fontManager = FontManager::getInstance();
-    if (!fontManager.initialize()) {
-        return 1;
-    }
-    if (!fontManager.loadFont("C:\\Windows\\Fonts\\msyh.ttc", 24)) {
-        return 1;
-    }
-    
-    // 创建一些测试控件
-    auto textView1 = std::make_unique<TextView>("Hello, SimpleGUI!");
-    textView1->setBounds(Rect(50, 50, 200, 40));
-    textView1->setTextColor(Color(0, 0, 255));  // 蓝色
-    
-    auto textView2 = std::make_unique<TextView>("这是中文测试");
-    textView2->setBounds(Rect(50, 100, 200, 40));
-    textView2->setTextColor(Color(255, 0, 0));  // 红色
-    textView2->setPadding(10, 5, 10, 5);
-    
-    // 主循环
-    while (renderer->processEvents()) {
-        renderer->clear(Color(255, 255, 255));
+    try {
+        Debug::Log("Creating renderer...");
+        auto renderer = Renderer::create(800, 600, "Widgets Test");
+        if (!renderer) {
+            Debug::Error("Failed to create renderer");
+            Debug::WaitForInput();
+            return 1;
+        }
         
-        textView1->draw(renderer.get());
-        textView2->draw(renderer.get());
+        Debug::Log("Initializing font manager...");
+        auto& fontManager = FontManager::getInstance();
+        if (!fontManager.initialize()) {
+            Debug::Error("Failed to initialize font manager");
+            Debug::WaitForInput();
+            return 1;
+        }
         
-        renderer->present();
-        std::this_thread::sleep_for(std::chrono::milliseconds(16));
+        Debug::Log("Loading font...");
+        if (!fontManager.loadFont("C:\\Windows\\Fonts\\segoe.ttf", 24)) {
+            Debug::Log("Failed to load segoe.ttf, trying arial.ttf...");
+            if (!fontManager.loadFont("C:\\Windows\\Fonts\\arial.ttf", 24)) {
+                Debug::Error("Failed to load any font");
+                Debug::WaitForInput();
+                return 1;
+            }
+        }
+        
+        Debug::Log("Creating widgets...");
+        
+        auto textView = new TextView("Click the button below!");
+        textView->setBounds(Rect(300, 200, 200, 40));
+        textView->setTextColor(Color(0, 0, 255));
+        
+        auto button = new Button("Click Me!");
+        button->setBounds(Rect(340, 260, 120, 40));
+        button->setOnClickListener([]() {
+            Debug::Log("Button clicked!");
+        });
+        
+        static_cast<GDIRenderer*>(renderer.get())->setEventHandler(
+            [button](const Event& event) {
+                return button->dispatchEvent(event);
+            }
+        );
+        
+        Debug::Log("Entering main loop...");
+        while (renderer->processEvents()) {
+            renderer->clear(Color(255, 255, 255));
+            textView->draw(renderer.get());
+            button->draw(renderer.get());
+            renderer->present();
+            std::this_thread::sleep_for(std::chrono::milliseconds(16));
+        }
+        
+        delete textView;
+        delete button;
+        Debug::Log("Exiting normally");
+        return 0;
+        
+    } catch (const std::exception& e) {
+        Debug::Error("Exception caught: ", e.what());
+        Debug::WaitForInput();
+        return 1;
+    } catch (...) {
+        Debug::Error("Unknown exception caught");
+        Debug::WaitForInput();
+        return 1;
     }
-    
-    return 0;
 } 

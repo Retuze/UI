@@ -95,6 +95,35 @@ LRESULT CALLBACK GDIRenderer::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
         case WM_DESTROY:
             PostQuitMessage(0);
             return 0;
+            
+        case WM_LBUTTONDOWN: {
+            Event event(EventType::MousePress);
+            event.position = Point(LOWORD(lParam), HIWORD(lParam));
+            event.button = 1;
+            if (renderer && renderer->eventHandler) {
+                renderer->eventHandler(event);
+            }
+            return 0;
+        }
+        
+        case WM_LBUTTONUP: {
+            Event event(EventType::MouseRelease);
+            event.position = Point(LOWORD(lParam), HIWORD(lParam));
+            event.button = 1;
+            if (renderer && renderer->eventHandler) {
+                renderer->eventHandler(event);
+            }
+            return 0;
+        }
+        
+        case WM_MOUSEMOVE: {
+            Event event(EventType::MouseMove);
+            event.position = Point(LOWORD(lParam), HIWORD(lParam));
+            if (renderer && renderer->eventHandler) {
+                renderer->eventHandler(event);
+            }
+            return 0;
+        }
     }
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }

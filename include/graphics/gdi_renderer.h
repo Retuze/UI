@@ -1,7 +1,9 @@
 #pragma once
+#include "core/event.h"
 #include "graphics/renderer.h"
 #include <windows.h>
 #include <vector>
+#include <functional>
 
 class GDIRenderer : public Renderer {
 public:
@@ -35,6 +37,10 @@ public:
     void pushClipRect(const Rect& rect) override;
     void popClipRect() override;
     
+    void setEventHandler(std::function<bool(const Event&)> handler) {
+        eventHandler = std::move(handler);
+    }
+    
 protected:
     void* lockRect(const Rect& rect, int* stride) override;
     void unlockRect() override;
@@ -52,4 +58,5 @@ private:
     bool shouldClose = false;
     bool initialized = false;
     bool initialize(HWND hwnd);
+    std::function<bool(const Event&)> eventHandler;
 }; 

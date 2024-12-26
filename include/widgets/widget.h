@@ -29,6 +29,11 @@ public:
     // 焦点管理
     bool hasFocus() const { return focused; }
     virtual void setFocus(bool focus);
+    
+    // 事件拦截：决定是否拦截事件不给子控件
+    virtual bool onInterceptEvent(const Event& event) {
+        return false;  // 默认不拦截
+    }
 
 protected:
     Rect bounds;

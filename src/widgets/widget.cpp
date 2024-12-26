@@ -35,18 +35,38 @@ void Widget::removeChild(Widget* child) {
 }
 
 bool Widget::dispatchEvent(const Event& event) {
-    // 先给子控件处理事件的机会
+    // 如果控件不可见,不处理任何事件
+    if (!visible) {
+        return false;
+    }
+
+    // 1. 先询问自己是否要拦截事件
+    if (onInterceptEvent(event)) {
+        // 如果拦截,则自己处理
+        return onEvent(event);
+    }
+
+    // 2. 给子控件分发事件(从上到下)
     for (auto it = children.rbegin(); it != children.rend(); ++it) {
         if ((*it)->dispatchEvent(event)) {
             return true;
         }
     }
     
-    // 如果子控件没有处理，自己处理
+    // 3. 如果子控件都没处理,自己处理
     return onEvent(event);
 }
 
 bool Widget::onEvent(const Event& event) {
+    // 对于鼠标事件,检查是否在控件范围内
+    if (event.type == EventType::MousePress || 
+        event.type == EventType::MouseRelease || 
+        event.type == EventType::MouseMove) {
+        if (!bounds.contains(event.position)) {
+            return false;
+        }
+    }
+
     switch (event.type) {
         case EventType::MousePress:
             return onMousePress(event);
