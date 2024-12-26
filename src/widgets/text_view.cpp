@@ -1,13 +1,15 @@
 #include "widgets/text_view.h"
+#include "graphics/font_manager.h"
 
 TextView::TextView(const std::string& text) : text(text) {}
 
 void TextView::draw(Renderer* renderer) {
-    // TODO: 绘制文本
+    auto& fontManager = FontManager::getInstance();
+    fontManager.renderText(renderer, text, bounds.x, bounds.y + bounds.height, Color(0, 0, 0));
 }
 
 bool TextView::handleEvent(const Event& event) {
-    return false;  // TextView 默认不处理事件
+    return false;
 }
 
 void TextView::setText(const std::string& text) {

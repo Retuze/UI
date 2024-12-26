@@ -45,6 +45,9 @@ target_link_libraries(simplegui PRIVATE freetype)
 # 添加示例目录
 add_subdirectory(examples)
 
+# 确保examples目录下的CMakeLists.txt能访问到freetype目标
+set(FREETYPE_TARGET freetype CACHE INTERNAL "")
+
 # IDE中的文件分组
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${HEADER_FILES} ${SOURCE_FILES}) 
 

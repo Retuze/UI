@@ -5,4 +5,5 @@ add_executable(simple_demo
 target_link_libraries(simple_demo
     PRIVATE
         simplegui
+        ${FREETYPE_TARGET}
 ) 

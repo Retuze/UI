@@ -22,6 +22,7 @@ bool FontManager::loadFont(const std::string& fontPath, int size) {
         return false;
     }
     
+    FT_Select_Charmap(face, FT_ENCODING_UNICODE);
     FT_Set_Pixel_Sizes(face, 0, size);
     return true;
 }
@@ -32,8 +33,25 @@ void FontManager::renderText(Renderer* renderer, const std::string& text, int x,
     int pen_x = x;
     int pen_y = y;
     
-    for (char c : text) {
-        if (FT_Load_Char(face, c, FT_LOAD_RENDER)) {
+    const unsigned char* str = (const unsigned char*)text.c_str();
+    while (*str) {
+        // 解码UTF-8
+        uint32_t code;
+        if ((*str & 0x80) == 0) {
+            code = *str++;
+        } else if ((*str & 0xE0) == 0xC0) {
+            code = (*str++ & 0x1F) << 6;
+            code |= (*str++ & 0x3F);
+        } else if ((*str & 0xF0) == 0xE0) {
+            code = (*str++ & 0x0F) << 12;
+            code |= (*str++ & 0x3F) << 6;
+            code |= (*str++ & 0x3F);
+        } else {
+            str++;
+            continue;
+        }
+        
+        if (FT_Load_Char(face, code, FT_LOAD_RENDER)) {
             continue;
         }
         
