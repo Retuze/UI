@@ -31,38 +31,6 @@ public:
         return false;
     }
     
-    // 实现具体的事件处理
-    bool handleEvent(const Event& event) override {
-        switch (event.type) {
-            case EventType::MousePress:
-                if (bounds.contains(event.position)) {
-                    isPressed = true;
-                    return true;
-                }
-                return false;
-                
-            case EventType::MouseRelease:
-                if (bounds.contains(event.position) && isPressed) {
-                    isPressed = false;
-                    if (onClick) onClick();
-                    return true;
-                }
-                isPressed = false;
-                return false;
-                
-            case EventType::MouseMove:
-                if (bounds.contains(event.position)) {
-                    isHovered = true;
-                } else {
-                    isHovered = false;
-                    isPressed = false;
-                }
-                return isHovered;
-                
-            default:
-                return false;
-        }
-    }
     
 protected:
     std::string text;

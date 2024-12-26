@@ -14,16 +14,15 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(freetype)
 
-# 自动发现头文件
+# 自动发现所有源文件和头文件
 file(GLOB_RECURSE HEADER_FILES
-    "include/*.h"
-    "include/*.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/*.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/*.hpp"
 )
 
-# 自动发现源文件
 file(GLOB_RECURSE SOURCE_FILES
-    "src/*.cpp"
-    "src/*.cc"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cc"
 )
 
 # 创建库
@@ -32,7 +31,7 @@ add_library(simplegui STATIC
     ${SOURCE_FILES}
 )
 
-# 设置包含目录和链接
+# 设置包含目录
 target_include_directories(simplegui
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -40,6 +39,8 @@ target_include_directories(simplegui
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
+
+# 链接 FreeType
 target_link_libraries(simplegui PRIVATE freetype)
 
 # 添加示例目录
@@ -49,6 +50,7 @@ add_subdirectory(examples)
 set(FREETYPE_TARGET freetype CACHE INTERNAL "")
 
 # IDE中的文件分组
-source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${HEADER_FILES} ${SOURCE_FILES}) 
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${HEADER_FILES} ${SOURCE_FILES})
 
+# 生成编译命令数据库
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON) 

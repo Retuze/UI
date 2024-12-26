@@ -7,7 +7,6 @@ public:
     explicit TextView(const std::string& text = "");
     
     void draw(Renderer* renderer) override;
-    bool handleEvent(const Event& event) override { return false; }
     
     // 基本属性设置
     void setText(const std::string& text);

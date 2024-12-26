@@ -1,5 +1,6 @@
 #include "widgets/button.h"
 #include "graphics/font_manager.h"
+#include "core/types.h"
 
 Button::Button(const std::string& text) : text(text) {}
 
@@ -16,10 +17,10 @@ void Button::draw(Renderer* renderer) {
     // 绘制文本
     auto& fontManager = FontManager::getInstance();
     
-    // 计算文本位置（居中显示）
-    // TODO: 需要获取文本尺寸来实现真正的居中
-    int textX = bounds.x + (bounds.width - text.length() * 12) / 2;  // 简单估算文本宽度
-    int textY = bounds.y + bounds.height / 2 + 8;  // 估算基线位置
+    // 使用 DPI 感知的文本大小
+    int scaledTextSize = DPIHelper::Scale(12);  // 基础文本大小
+    int textX = bounds.x + (bounds.width - text.length() * scaledTextSize) / 2;
+    int textY = bounds.y + bounds.height / 2 + DPIHelper::Scale(8);
     
     fontManager.renderText(renderer, text, textX, textY, textColor);
 }

@@ -9,7 +9,7 @@ void Activity::setContentView(Widget* root) {
 
 bool Activity::handleEvent(const Event& event) {
     if (rootView) {
-        return rootView->handleEvent(event);
+        return rootView->dispatchEvent(event);
     }
     return false;
 }

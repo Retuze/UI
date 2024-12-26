@@ -1,4 +1,5 @@
 #include "widgets/widget.h"
+// #include "core/debug.h"
 
 Widget::Widget() : parent(nullptr), visible(true) {}
 
@@ -35,30 +36,29 @@ void Widget::removeChild(Widget* child) {
 }
 
 bool Widget::dispatchEvent(const Event& event) {
-    // 如果控件不可见,不处理任何事件
+    // Debug::Log("Widget::dispatchEvent - ", typeid(*this).name());
+    
+    // 1. 如果控件不可见，不处理任何事件
     if (!visible) {
         return false;
     }
 
-    // 1. 先询问自己是否要拦截事件
-    if (onInterceptEvent(event)) {
-        // 如果拦截,则自己处理
-        return onEvent(event);
-    }
-
-    // 2. 给子控件分发事件(从上到下)
+    // 2. 先让子控件处理事件（从上到下）
     for (auto it = children.rbegin(); it != children.rend(); ++it) {
-        if ((*it)->dispatchEvent(event)) {
+        if ((*it)->isVisible() && (*it)->dispatchEvent(event)) {
+            // Debug::Log("  Child handled event");
             return true;
         }
     }
     
-    // 3. 如果子控件都没处理,自己处理
-    return onEvent(event);
+    // 3. 子控件没处理，自己处理（从下到上冒泡）
+    bool handled = onEvent(event);
+    // Debug::Log("  Self handled: ", handled);
+    return handled;
 }
 
 bool Widget::onEvent(const Event& event) {
-    // 对于鼠标事件,检查是否在控件范围内
+    // 对于鼠标事件，先检查坐标是否在控件范围内
     if (event.type == EventType::MousePress || 
         event.type == EventType::MouseRelease || 
         event.type == EventType::MouseMove) {
@@ -67,6 +67,7 @@ bool Widget::onEvent(const Event& event) {
         }
     }
 
+    // 分发到具体的事件处理方法
     switch (event.type) {
         case EventType::MousePress:
             return onMousePress(event);
@@ -77,18 +78,6 @@ bool Widget::onEvent(const Event& event) {
         default:
             return false;
     }
-}
-
-bool Widget::onMousePress(const Event& event) {
-    return false;
-}
-
-bool Widget::onMouseRelease(const Event& event) {
-    return false;
-}
-
-bool Widget::onMouseMove(const Event& event) {
-    return false;
 }
 
 void Widget::setFocus(bool focus) {

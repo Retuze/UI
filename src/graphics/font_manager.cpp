@@ -1,5 +1,6 @@
 #include "graphics/font_manager.h"
 #include <stdexcept>
+#include <windows.h>
 
 FontManager& FontManager::getInstance() {
     static FontManager instance;
@@ -22,8 +23,16 @@ bool FontManager::loadFont(const std::string& fontPath, int size) {
         return false;
     }
     
+    // 获取系统 DPI
+    HDC hdc = GetDC(NULL);
+    int dpi = GetDeviceCaps(hdc, LOGPIXELSY);
+    ReleaseDC(NULL, hdc);
+    
+    // 根据 DPI 调整字体大小
+    int adjustedSize = MulDiv(size, dpi, 96);
+    
     FT_Select_Charmap(face, FT_ENCODING_UNICODE);
-    FT_Set_Pixel_Sizes(face, 0, size);
+    FT_Set_Pixel_Sizes(face, 0, adjustedSize);
     return true;
 }
 

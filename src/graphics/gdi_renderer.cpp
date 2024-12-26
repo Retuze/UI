@@ -42,6 +42,15 @@ ATOM GDIRenderer::registerClass() {
 bool GDIRenderer::createWindow(int width, int height, const char* title) {
     if (!registerClass()) return false;
 
+    // 根据 DPI 调整窗口大小
+    HDC hdc = GetDC(NULL);
+    int dpiX = GetDeviceCaps(hdc, LOGPIXELSX);
+    int dpiY = GetDeviceCaps(hdc, LOGPIXELSY);
+    ReleaseDC(NULL, hdc);
+    
+    width = MulDiv(width, dpiX, 96);
+    height = MulDiv(height, dpiY, 96);
+    
     RECT rc = {0, 0, width, height};
     AdjustWindowRect(&rc, WS_OVERLAPPEDWINDOW, FALSE);
     
@@ -334,6 +343,9 @@ std::unique_ptr<Renderer> Renderer::create(int width, int height, const char* ti
 }
 
 bool GDIRenderer::initialize(HWND hwnd) {
+    // 启用 DPI 感知
+    SetProcessDPIAware();
+    
     this->hwnd = hwnd;
     hdc = GetDC(hwnd);
     if (!hdc) return false;

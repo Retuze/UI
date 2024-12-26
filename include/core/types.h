@@ -1,5 +1,7 @@
 #pragma once
 #include <cstdint>
+#include <windef.h>
+#include <windows.h>
 
 struct Point {
     int x, y;
@@ -34,4 +36,29 @@ enum class PixelFormat {
     RGB888,    // 24位
     RGBA8888,  // 32位
     A8,        // 8位alpha通道，用于字体渲染
+}; 
+
+// 添加 DPI 相关辅助函数
+struct DPIHelper {
+    static int Scale(int value) {
+        static int dpi = []() {
+            HDC hdc = GetDC(NULL);
+            int dpi = GetDeviceCaps(hdc, LOGPIXELSY);
+            ReleaseDC(NULL, hdc);
+            return dpi;
+        }();
+        return MulDiv(value, dpi, 96);
+    }
+    
+    static Point Scale(const Point& p) {
+        return Point(Scale(p.x), Scale(p.y));
+    }
+    
+    static Size Scale(const Size& s) {
+        return Size(Scale(s.width), Scale(s.height));
+    }
+    
+    static Rect Scale(const Rect& r) {
+        return Rect(Scale(r.x), Scale(r.y), Scale(r.width), Scale(r.height));
+    }
 }; 

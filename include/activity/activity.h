@@ -10,6 +10,7 @@ public:
     virtual void onResume() = 0;
     virtual void onPause() = 0;
     virtual void onDestroy() = 0;
+    virtual void onUpdate() = 0;
     
     void setContentView(Widget* root);
     Widget* getContentView() const { return rootView; }
