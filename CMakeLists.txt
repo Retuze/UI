@@ -1,56 +1,51 @@
-cmake_minimum_required(VERSION 3.14)
-project(UIFramework)
+cmake_minimum_required(VERSION 3.15)
+project(SimpleGUI VERSION 0.1.0)
 
 # 设置C++标准
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# 包含 FetchContent 模块
+# FreeType
 include(FetchContent)
-
-# 下载并构建 FreeType
 FetchContent_Declare(
     freetype
     GIT_REPOSITORY https://github.com/freetype/freetype.git
-    GIT_TAG        VER-2-13-2  # 使用稳定版本
+    GIT_TAG VER-2-13-2
 )
-
-# 配置 FreeType 构建选项
-set(FT_DISABLE_ZLIB ON CACHE BOOL "" FORCE)
-set(FT_DISABLE_BZIP2 ON CACHE BOOL "" FORCE)
-set(FT_DISABLE_PNG ON CACHE BOOL "" FORCE)
-set(FT_DISABLE_HARFBUZZ ON CACHE BOOL "" FORCE)
-set(FT_DISABLE_BROTLI ON CACHE BOOL "" FORCE)
-
-# 构建 FreeType
 FetchContent_MakeAvailable(freetype)
 
-# 源文件
-set(SOURCES
-    src/platform/windows/window.cpp
-    src/font/freetype_font.cpp
+# 自动发现头文件
+file(GLOB_RECURSE HEADER_FILES
+    "include/*.h"
+    "include/*.hpp"
 )
 
-# 添加可执行文件
-add_executable(${PROJECT_NAME}
-    src/main.cpp
-    ${SOURCES}
+# 自动发现源文件
+file(GLOB_RECURSE SOURCE_FILES
+    "src/*.cpp"
+    "src/*.cc"
 )
 
-# 添加头文件目录
-target_include_directories(${PROJECT_NAME} PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
+# 创建库
+add_library(simplegui STATIC
+    ${HEADER_FILES}
+    ${SOURCE_FILES}
 )
 
-# Windows 特定设置
-if(WIN32)
-    target_compile_definitions(${PROJECT_NAME} PRIVATE 
-        UNICODE 
-        _UNICODE
-    )
-    
-    target_link_libraries(${PROJECT_NAME} PRIVATE
-        gdi32
-        freetype
-    )
-endif() 
+# 设置包含目录和链接
+target_include_directories(simplegui
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:include>
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+target_link_libraries(simplegui PRIVATE freetype)
+
+# 添加示例目录
+add_subdirectory(examples)
+
+# IDE中的文件分组
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${HEADER_FILES} ${SOURCE_FILES}) 
+
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON) 
