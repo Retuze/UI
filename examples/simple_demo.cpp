@@ -16,7 +16,7 @@ int main() {
     if (!fontManager.initialize()) {
         return 1;
     }
-    if (!fontManager.loadFont("C:\\Windows\\Fonts\\msyh.ttf", 24)) {
+    if (!fontManager.loadFont("C:\\Windows\\Fonts\\msyh.ttc", 24)) {
         return 1;
     }
     
