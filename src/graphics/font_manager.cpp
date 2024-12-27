@@ -4,6 +4,10 @@
 #include <windows.h>
 #include <algorithm>
 #include <cmath>
+#include "graphics/dpi_manager.h"
+#include "core/logger.h"
+
+LOG_TAG("FontManager");
 
 FontManager& FontManager::getInstance() {
     static FontManager instance;
@@ -22,17 +26,17 @@ bool FontManager::loadFont(const std::string& fontPath, int size) {
         FT_Done_Face(face);
     }
     
+    LOGI("Loading font: ", fontPath, " with size: ", size);
+    
     if (FT_New_Face(library, fontPath.c_str(), 0, &face)) {
+        LOGE("Failed to load font: ", fontPath);
         return false;
     }
     
-    // 获取系统 DPI
-    HDC hdc = GetDC(NULL);
-    int dpi = GetDeviceCaps(hdc, LOGPIXELSY);
-    ReleaseDC(NULL, hdc);
+    auto& dpiManager = DPIManager::getInstance();
+    int adjustedSize = dpiManager.scaleY(size);
     
-    // 根据 DPI 调整字体大小（使用 72 DPI 作为基准）
-    int adjustedSize = (size * dpi) / 72;
+    LOGD("Adjusted font size: ", adjustedSize, " (DPI: ", dpiManager.getDpiY(), ")");
     
     FT_Select_Charmap(face, FT_ENCODING_UNICODE);
     FT_Set_Pixel_Sizes(face, 0, adjustedSize);

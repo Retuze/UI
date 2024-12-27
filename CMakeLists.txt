@@ -36,6 +36,7 @@ target_include_directories(simplegui
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>
+        ${FREETYPE_INCLUDE_DIRS}
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
@@ -71,3 +72,10 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${HEADER_FILES} ${SOURCE_FIL
 
 # 生成编译命令数据库
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON) 
+
+# 在examples目录下的target也需要添加FreeType头文件路径
+target_include_directories(simple_demo
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${FREETYPE_INCLUDE_DIRS}
+) 

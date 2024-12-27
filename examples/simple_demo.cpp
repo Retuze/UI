@@ -1,4 +1,4 @@
-#include "core/debug.h"
+#include "core/logger.h"
 #include "graphics/gdi_renderer.h"
 #include "graphics/renderer.h"
 #include "graphics/font_manager.h"
@@ -7,12 +7,15 @@
 #include "layout/layout.h"
 #include "widgets/linear_layout_view.h"
 #include "activity/activity.h"
+#include "graphics/dpi_manager.h"
 #include <memory>
 #include <chrono>
 #include <thread>
 #include <iostream>
 #include <iomanip>
 #include <sstream>
+
+LOG_TAG("SimpleDemo");
 
 class MainActivity : public Activity {
 private:
@@ -40,7 +43,6 @@ private:
 
 public:
     void onCreate() override {
-        Debug::Log("MainActivity::onCreate");
         
         auto layout = new LinearLayoutView(LinearLayout::Orientation::Vertical);
         layout->setBounds(Rect(0, 0, 800, 600));
@@ -54,6 +56,7 @@ public:
         startStopButton = new Button("Start");
         startStopButton->setSize(120, 40);
         startStopButton->setOnClickListener([this]() {
+            LOGI("StartStopButton::onClick");
             if (!running) {
                 running = true;
                 startTime = std::chrono::steady_clock::now() - elapsedTime;
@@ -98,53 +101,53 @@ public:
     }
 
     void onResume() override {
-        Debug::Log("MainActivity::onResume");
+        LOGI("MainActivity::onResume");
     }
     
     void onPause() override {
-        Debug::Log("MainActivity::onPause");
+        LOGI("MainActivity::onPause");
     }
     
     void onDestroy() override {
-        Debug::Log("MainActivity::onDestroy");
+        LOGI("MainActivity::onDestroy");
     }
 };
 
 int main() {
-    Debug::Initialize();
+    auto& logger = Logger::getInstance();
+    logger.initialize();
+    logger.setLevel(LogLevel::Debug);
     
     try {
-        Debug::Log("Creating renderer...");
+        LOGI("Creating renderer...");
         auto renderer = Renderer::create(800, 600, "Stopwatch");
         if (!renderer) {
-            Debug::Error("Failed to create renderer");
-            Debug::WaitForInput();
+            LOGE("Failed to create renderer");
+            logger.waitForInput();
             return 1;
         }
         
-        Debug::Log("Initializing font manager...");
+        LOGI("Initializing font manager...");
         auto& fontManager = FontManager::getInstance();
         if (!fontManager.initialize()) {
-            Debug::Error("Failed to initialize font manager");
-            Debug::WaitForInput();
+            LOGE("Failed to initialize font manager");
+            logger.waitForInput();
             return 1;
         }
         
-        Debug::Log("Loading font...");
-        if (!fontManager.loadFont("C:\\Windows\\Fonts\\segoe.ttf", 24)) {
-            Debug::Log("Failed to load segoe.ttf, trying arial.ttf...");
-            if (!fontManager.loadFont("C:\\Windows\\Fonts\\arial.ttf", 24)) {
-                Debug::Error("Failed to load any font");
-                Debug::WaitForInput();
-                return 1;
-            }
+        LOGI("Loading font...");
+        DPIManager::getInstance().initialize();
+        Logger::getInstance().setLevel(LogLevel::Debug);
+        if (!fontManager.loadFont("C:\\Windows\\Fonts\\arial.ttf", 24)) {
+            LOGE("Failed to load font");
+            return 1;
         }
         
         auto activity = std::make_unique<MainActivity>();
         activity->onCreate();
         activity->onResume();
         
-        Debug::Log("Setting up event handler...");
+        LOGI("Setting up event handler...");
         auto* gdiRenderer = static_cast<GDIRenderer*>(renderer.get());
         gdiRenderer->setEventHandler([&activity](const Event& event) {
             return activity->handleEvent(event);
@@ -155,7 +158,7 @@ int main() {
             activity->draw(gdiRenderer);
         });
         
-        Debug::Log("Entering main loop...");
+        LOGI("Entering main loop...");
         while (renderer->processEvents()) {
             renderer->clear(Color(255, 255, 255));
             activity->onUpdate();
@@ -169,12 +172,12 @@ int main() {
         return 0;
         
     } catch (const std::exception& e) {
-        Debug::Error("Exception caught: ", e.what());
-        Debug::WaitForInput();
+        LOGE("Exception caught: ", e.what());
+        logger.waitForInput();
         return 1;
     } catch (...) {
-        Debug::Error("Unknown exception caught");
-        Debug::WaitForInput();
+        LOGE("Unknown exception caught");
+        logger.waitForInput();
         return 1;
     }
 }
