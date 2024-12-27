@@ -93,6 +93,30 @@ LRESULT CALLBACK GDIRenderer::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
     GDIRenderer* renderer = (GDIRenderer*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
     
     switch (msg) {
+        case WM_ENTERSIZEMOVE:
+            if (renderer) {
+                renderer->sizeMoveTimerRunning = SetTimer(hwnd, SIZE_MOVE_TIMER_ID, 
+                    USER_TIMER_MINIMUM, nullptr);
+            }
+            return 0;
+            
+        case WM_EXITSIZEMOVE:
+            if (renderer && renderer->sizeMoveTimerRunning) {
+                KillTimer(hwnd, SIZE_MOVE_TIMER_ID);
+                renderer->sizeMoveTimerRunning = false;
+            }
+            return 0;
+            
+        case WM_TIMER:
+            if (wParam == SIZE_MOVE_TIMER_ID && renderer) {
+                renderer->clear(Color(255, 255, 255));
+                if (renderer->updateCallback) {
+                    renderer->updateCallback();
+                }
+                renderer->present();
+            }
+            return 0;
+            
         case WM_PAINT:
             if (renderer) {
                 PAINTSTRUCT ps;

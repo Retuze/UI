@@ -150,6 +150,11 @@ int main() {
             return activity->handleEvent(event);
         });
         
+        gdiRenderer->setUpdateCallback([&]() {
+            activity->onUpdate();
+            activity->draw(gdiRenderer);
+        });
+        
         Debug::Log("Entering main loop...");
         while (renderer->processEvents()) {
             renderer->clear(Color(255, 255, 255));

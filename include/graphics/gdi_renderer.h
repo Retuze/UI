@@ -41,6 +41,10 @@ public:
         eventHandler = std::move(handler);
     }
     
+    void setUpdateCallback(std::function<void()> callback) {
+        updateCallback = std::move(callback);
+    }
+    
 protected:
     void* lockRect(const Rect& rect, int* stride) override;
     void unlockRect() override;
@@ -59,4 +63,7 @@ private:
     bool initialized = false;
     bool initialize(HWND hwnd);
     std::function<bool(const Event&)> eventHandler;
+    bool sizeMoveTimerRunning = false;
+    static const UINT_PTR SIZE_MOVE_TIMER_ID = 1;
+    std::function<void()> updateCallback;
 }; 
