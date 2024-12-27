@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.15)
 project(SimpleGUI VERSION 0.1.0)
 
 # 设置C++标准
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # FreeType
@@ -40,8 +40,25 @@ target_include_directories(simplegui
         ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
-# 链接 FreeType
-target_link_libraries(simplegui PRIVATE freetype)
+if(MINGW)
+    # 设置 Windows 版本号
+    target_compile_definitions(simplegui 
+        PRIVATE 
+        WINVER=0x0600 
+        _WIN32_WINNT=0x0600
+        UNICODE
+        _UNICODE
+    )
+    
+    # 链接必要的 Windows 库
+    target_link_libraries(simplegui 
+        PRIVATE 
+        freetype
+        gdi32
+        user32
+        shell32
+    )
+endif()
 
 # 添加示例目录
 add_subdirectory(examples)

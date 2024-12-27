@@ -33,7 +33,7 @@ ATOM GDIRenderer::registerClass() {
     wc.hInstance = GetModuleHandle(NULL);
     wc.hCursor = LoadCursor(NULL, IDC_ARROW);
     wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
-    wc.lpszClassName = "SimpleGUI";
+    wc.lpszClassName = L"SimpleGUI";
     
     registered = RegisterClassEx(&wc);
     return registered;
@@ -54,8 +54,13 @@ bool GDIRenderer::createWindow(int width, int height, const char* title) {
     RECT rc = {0, 0, width, height};
     AdjustWindowRect(&rc, WS_OVERLAPPEDWINDOW, FALSE);
     
-    hwnd = CreateWindow(
-        "SimpleGUI", title,
+    // 转换标题为宽字符
+    int titleLen = MultiByteToWideChar(CP_UTF8, 0, title, -1, NULL, 0);
+    std::wstring wTitle(titleLen, 0);
+    MultiByteToWideChar(CP_UTF8, 0, title, -1, &wTitle[0], titleLen);
+    
+    hwnd = CreateWindowW(
+        L"SimpleGUI", wTitle.c_str(),
         WS_OVERLAPPEDWINDOW,
         CW_USEDEFAULT, CW_USEDEFAULT,
         rc.right - rc.left, rc.bottom - rc.top,

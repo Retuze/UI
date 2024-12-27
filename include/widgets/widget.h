@@ -3,6 +3,7 @@
 #include "core/event.h"
 #include "graphics/renderer.h"
 #include <vector>
+#include <algorithm>
 
 class Widget {
 public:
