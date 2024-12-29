@@ -62,6 +62,9 @@ public:
             parent->postDelayed(std::move(runnable), delay);
         }
     }
+    
+    static Widget* getCapturedWidget() { return capturedWidget; }
+    static void setCapturedWidget(Widget* widget) { capturedWidget = widget; }
 
 protected:
     // 具体事件处理方法
@@ -74,4 +77,5 @@ protected:
     std::vector<Widget*> children;
     bool visible;
     bool focused = false;
+    static Widget* capturedWidget;  // 当前捕获事件的控件
 }; 

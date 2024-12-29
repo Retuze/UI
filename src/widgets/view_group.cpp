@@ -67,31 +67,27 @@ void ViewGroup::draw(Renderer* renderer) {
 }
 
 bool ViewGroup::dispatchEvent(const Event& event) {
-    // Debug::Log("ViewGroup::dispatchEvent - ", typeid(*this).name());
-    
-    // 1. 如果控件不可见，不处理任何事件
     if (!visible) {
         return false;
     }
 
-    // 2. 判断是否要拦截事件
-    bool intercepted = onInterceptEvent(event);
-    // Debug::Log("  ViewGroup intercepted: ", intercepted);
+    // 1. 如果有控件捕获了事件，直接发送给它
+    if (Widget::getCapturedWidget()) {
+        return Widget::getCapturedWidget()->onEvent(event);
+    }
 
-    // 3. 如果没有拦截，让子控件处理（从上到下）
+    // 2. 正常的事件分发流程
+    bool intercepted = onInterceptEvent(event);
+    
     if (!intercepted) {
         for (auto it = children.rbegin(); it != children.rend(); ++it) {
             if ((*it)->isVisible() && (*it)->dispatchEvent(event)) {
-                // Debug::Log("  ViewGroup child handled event");
                 return true;
             }
         }
     }
     
-    // 4. 如果拦截了或子控件没处理，自己处理（从下到上冒泡）
-    bool handled = onEvent(event);
-    // Debug::Log("  ViewGroup self handled: ", handled);
-    return handled;
+    return onEvent(event);
 }
 
 

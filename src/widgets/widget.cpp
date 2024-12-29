@@ -1,6 +1,8 @@
 #include "widgets/widget.h"
 // #include "core/debug.h"
 
+Widget* Widget::capturedWidget = nullptr;
+
 Widget::Widget() : parent(nullptr), visible(true) {}
 
 void Widget::setPosition(int x, int y) {
@@ -58,7 +60,21 @@ bool Widget::dispatchEvent(const Event& event) {
 }
 
 bool Widget::onEvent(const Event& event) {
-    // 对于鼠标事件，先检查坐标是否在控件范围内
+    // 如果是捕获的控件，不检查坐标
+    if (this == capturedWidget) {
+        switch (event.type) {
+            case EventType::MousePress:
+                return onMousePress(event);
+            case EventType::MouseRelease:
+                return onMouseRelease(event);
+            case EventType::MouseMove:
+                return onMouseMove(event);
+            default:
+                return false;
+        }
+    }
+
+    // 对于非捕获的控件，检查坐标
     if (event.type == EventType::MousePress || 
         event.type == EventType::MouseRelease || 
         event.type == EventType::MouseMove) {
@@ -67,7 +83,6 @@ bool Widget::onEvent(const Event& event) {
         }
     }
 
-    // 分发到具体的事件处理方法
     switch (event.type) {
         case EventType::MousePress:
             return onMousePress(event);

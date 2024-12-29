@@ -30,30 +30,42 @@ void Button::draw(Renderer* renderer) {
 bool Button::onMousePress(const Event& event) {
     if (bounds.contains(event.position)) {
         isPressed = true;
+        isHovered = true;
+        Widget::setCapturedWidget(this);  // 设置为当前捕获事件的控件
         return true;
     }
     return false;
 }
 
 bool Button::onMouseRelease(const Event& event) {
-    if (bounds.contains(event.position) && isPressed) {
+    // 如果是当前捕获事件的控件，则处理释放事件
+    if (Widget::getCapturedWidget() == this) {
+        bool wasPressed = isPressed;
         isPressed = false;
-        if (onClick) {
-            onClick();
+        Widget::setCapturedWidget(nullptr);  // 清除捕获
+        
+        if (bounds.contains(event.position)) {
+            if (wasPressed && onClick) {
+                onClick();
+            }
+            return true;
         }
-        return true;
+        
+        isHovered = false;
+        return true;  // 即使在按钮外释放，也要消费这个事件
     }
-    isPressed = false;
     return false;
 }
 
 bool Button::onMouseMove(const Event& event) {
-    if (bounds.contains(event.position)) {
-        isHovered = true;
-    } else {
-        isHovered = false;
-        isPressed = false;
+    if (Widget::getCapturedWidget() == this) {
+        // 如果是捕获的控件，根据位置更新状态
+        isHovered = bounds.contains(event.position);
+        return true;
     }
+    
+    // 非捕获状态下的正常处理
+    isHovered = bounds.contains(event.position);
     return true;
 }
 
