@@ -12,12 +12,12 @@ enum class EventType {
 };
 
 struct Event {
+    Event() = default;
+    Event(EventType type) : type(type) {}
+    
     EventType type;
     Point position;
-    int button;
-    bool handled;
-    
-    Event(EventType type) : type(type), handled(false), button(0) {}
+    int button = 0;
 };
 
 using EventHandler = std::function<bool(const Event&)>;

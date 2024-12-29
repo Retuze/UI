@@ -1,5 +1,6 @@
 #include "widgets/button.h"
 #include "graphics/font_manager.h"
+#include "graphics/dpi_manager.h"
 #include "core/types.h"
 
 Button::Button(const std::string& text) : text(text) {}
@@ -16,11 +17,12 @@ void Button::draw(Renderer* renderer) {
     
     // 绘制文本
     auto& fontManager = FontManager::getInstance();
+    auto& dpiManager = DPIManager::getInstance();
     
     // 使用 DPI 感知的文本大小
-    int scaledTextSize = DPIHelper::Scale(12);  // 基础文本大小
+    int scaledTextSize = dpiManager.scaleY(12);  // 基础文本大小
     int textX = bounds.x + (bounds.width - text.length() * scaledTextSize) / 2;
-    int textY = bounds.y + bounds.height / 2 + DPIHelper::Scale(8);
+    int textY = bounds.y + bounds.height / 2 + dpiManager.scaleY(8);
     
     fontManager.renderText(renderer, text, textX, textY, textColor);
 }

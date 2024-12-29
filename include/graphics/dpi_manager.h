@@ -1,5 +1,6 @@
 #pragma once
 #include <windows.h>
+#include "core/types.h"
 
 class DPIManager {
 public:
@@ -17,6 +18,11 @@ public:
     // 获取原始DPI值
     int getDpiX() const { return dpiX; }
     int getDpiY() const { return dpiY; }
+    
+    // 添加这些声明
+    Point scalePoint(const Point& p) const;
+    Size scaleSize(const Size& s) const;
+    Rect scaleRect(const Rect& r) const;
 
 private:
     DPIManager() = default;

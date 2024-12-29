@@ -4,6 +4,8 @@
 #include "graphics/renderer.h"
 #include <vector>
 #include <algorithm>
+#include <functional>
+#include <chrono>
 
 class Widget {
 public:
@@ -33,6 +35,33 @@ public:
     
     void setParent(Widget* parent) { this->parent = parent; }
     bool isVisible() const { return visible; }
+    
+    // 请求重绘
+    virtual void invalidate() {
+        needsRedraw = true;
+        // 向上传递重绘请求
+        if (parent) {
+            parent->invalidate();
+        }
+    }
+    
+    // 检查是否需要重绘
+    bool needsRedraw = false;
+    
+    // 投递一个稍后执行的操作
+    using Runnable = std::function<void()>;
+    virtual void post(Runnable&& runnable) {
+        if (parent) {
+            parent->post(std::move(runnable));
+        }
+    }
+    
+    // 投递一个延迟执行的操作
+    virtual void postDelayed(Runnable&& runnable, std::chrono::milliseconds delay) {
+        if (parent) {
+            parent->postDelayed(std::move(runnable), delay);
+        }
+    }
 
 protected:
     // 具体事件处理方法

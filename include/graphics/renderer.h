@@ -34,6 +34,11 @@ public:
     virtual bool processEvents() = 0;  // 返回 false 表示应该退出
     virtual int getWidth() const = 0;
     virtual int getHeight() const = 0;
+    
+    // 添加以下方法
+    virtual void setVSync(bool enabled) = 0;  // 垂直同步控制
+    virtual void setFrameRate(int fps) = 0;   // 帧率控制
+    virtual bool isHardwareAccelerated() const = 0;  // 是否硬件加速
 
 protected:
     // 辅助函数
