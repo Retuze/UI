@@ -1,9 +1,11 @@
- #include "core/logger.h"
+#include "core/logger.h"
 
 Logger& Logger::getInstance() {
     static Logger instance;
     return instance;
 }
+
+#if LOG_ENABLED
 
 void Logger::initialize() {
     if (!initialized) {
@@ -36,3 +38,5 @@ const char* Logger::getLevelString(LogLevel level) const {
         default:               return "UNKNOWN";
     }
 }
+
+#endif
