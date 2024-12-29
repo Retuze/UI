@@ -110,6 +110,10 @@ public:
       running = false;
       elapsedTime = std::chrono::milliseconds(0);
       startStopButton->setText("Start");
+      updateDisplay();
+      
+      // 移除帧回调
+      Choreographer::getInstance().removeFrameCallback(this);
     });
 
     layout->addView(timeDisplay);

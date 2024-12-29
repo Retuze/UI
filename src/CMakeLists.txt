@@ -9,15 +9,14 @@ file(GLOB_RECURSE SOURCES
     "widgets/*.cpp"
 )
 
-# 创建库
-add_library(simplegui ${SOURCES})
+# 创建静态库
+add_library(simplegui STATIC ${SOURCES})
 
 # 设置包含目录
 target_include_directories(simplegui
     PUBLIC 
         ${CMAKE_SOURCE_DIR}/include
 )
-
 
 # 链接依赖库
 target_link_libraries(simplegui
@@ -26,9 +25,10 @@ target_link_libraries(simplegui
     PRIVATE
         gdi32
         user32
+        -static
 )
 
-# 安装规则（可选）
+# 安装规则
 install(TARGETS simplegui
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib
