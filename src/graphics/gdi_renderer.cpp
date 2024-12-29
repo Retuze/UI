@@ -22,13 +22,14 @@ GDIRenderer::GDIRenderer(HWND hwnd) : hwnd(hwnd), width(0), height(0),
 }
 
 GDIRenderer::~GDIRenderer() {
-    // 先停止渲染线程
+    // 确保渲染线程已经停止
     running = false;
+    renderCV.notify_all();
     if (renderThread.joinable()) {
         renderThread.join();
     }
     
-    // 然后释放GDI资源
+    // 清理GDI资源
     if (hBitmap) {
         DeleteObject(hBitmap);
         hBitmap = nullptr;
@@ -122,7 +123,17 @@ LRESULT CALLBACK GDIRenderer::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
     
     switch (msg) {
         case WM_CLOSE:
-            if (renderer) renderer->shouldClose = true;
+            if (renderer) {
+                // 先停止渲染线程
+                renderer->running = false;
+                renderer->renderCV.notify_all();  // 唤醒所有等待的线程
+                if (renderer->renderThread.joinable()) {
+                    renderer->renderThread.join();
+                }
+                // 设置关闭标志
+                renderer->shouldClose = true;
+            }
+            DestroyWindow(hwnd);
             return 0;
             
         case WM_DESTROY:
@@ -145,6 +156,14 @@ LRESULT CALLBACK GDIRenderer::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
             
             if (renderer && renderer->eventHandler) {
                 renderer->eventHandler(event);
+            }
+            return 0;
+        }
+        case WM_SIZE: {
+            if (renderer) {
+                int newWidth = LOWORD(lParam);
+                int newHeight = HIWORD(lParam);
+                renderer->resizeBuffers(newWidth, newHeight);
             }
             return 0;
         }
@@ -393,18 +412,26 @@ bool GDIRenderer::initialize(HWND hwnd) {
             auto now = steady_clock::now();
             auto frameTime = duration_cast<nanoseconds>(now - lastFrame);
             
-            // 处理帧回调
-            Choreographer::getInstance().doFrame(frameTime);
+            // 计算需要休眠的时间
+            auto nextFrame = lastFrame + milliseconds(16);
+            auto sleepTime = nextFrame - now;
             
-            // 渲染
-            if (renderCallback) {
-                renderCallback(this);
-                present();
+            if (sleepTime > nanoseconds::zero()) {
+                // 使用条件变量等待，可以被resizeBuffers唤醒
+                std::unique_lock<std::mutex> lock(renderMutex);
+                renderCV.wait_for(lock, sleepTime);
+                
+                // 在持有锁的情况下执行渲染
+                clear(Color(255, 255, 255));
+                Choreographer::getInstance().doFrame(frameTime);
+                
+                if (renderCallback) {
+                    renderCallback(this);
+                    present();
+                }
             }
             
-            // 帧率控制
-            lastFrame = now;
-            std::this_thread::sleep_for(milliseconds(16));
+            lastFrame = steady_clock::now();
         }
     });
     
@@ -429,4 +456,63 @@ void GDIRenderer::setVSync(bool enabled) {
 
 void GDIRenderer::setFrameRate(int fps) {
     targetFPS = fps;
+}
+
+bool GDIRenderer::resizeBuffers(int newWidth, int newHeight) {
+    std::unique_lock<std::mutex> lock(renderMutex);
+    
+    // 保存旧的位图和尺寸
+    HBITMAP oldBitmap = hBitmap;
+    HDC oldHdcMem = hdcMem;
+    int oldWidth = width;
+    int oldHeight = height;
+    
+    // 创建新的DC和位图
+    hdcMem = CreateCompatibleDC(hdc);
+    if (!hdcMem) {
+        LOGE("创建新的兼容DC失败");
+        return false;
+    }
+    
+    width = newWidth;
+    height = newHeight;
+    hBitmap = CreateCompatibleBitmap(hdc, width, height);
+    if (!hBitmap) {
+        LOGE("创建新的兼容位图失败");
+        DeleteDC(hdcMem);
+        hdcMem = oldHdcMem;
+        width = oldWidth;
+        height = oldHeight;
+        return false;
+    }
+    
+    SelectObject(hdcMem, hBitmap);
+    clear(Color(255, 255, 255));
+    
+    // 复制旧内容到新缓冲区
+    if (oldBitmap && oldHdcMem) {
+        BitBlt(hdcMem, 0, 0, 
+               std::min(oldWidth, width), 
+               std::min(oldHeight, height),
+               oldHdcMem, 0, 0, SRCCOPY);
+    }
+    
+    // 立即渲染一帧
+    if (renderCallback) {
+        renderCallback(this);
+        present();
+    }
+    
+    // 清理旧资源
+    if (oldHdcMem) {
+        SelectObject(oldHdcMem, nullptr);
+        DeleteDC(oldHdcMem);
+    }
+    if (oldBitmap) {
+        DeleteObject(oldBitmap);
+    }
+    
+    // 通知渲染线程继续
+    renderCV.notify_one();
+    return true;
 }

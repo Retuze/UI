@@ -57,6 +57,8 @@ public:
         renderCallback = std::move(callback);
     }
     
+    bool resizeBuffers(int newWidth, int newHeight);
+    
 protected:
     void* lockRect(const Rect& rect, int* stride) override;
     void unlockRect() override;
