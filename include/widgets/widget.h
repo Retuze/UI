@@ -65,6 +65,20 @@ public:
     
     static Widget* getCapturedWidget() { return capturedWidget; }
     static void setCapturedWidget(Widget* widget) { capturedWidget = widget; }
+    
+    // 测量相关
+    virtual void measure(int widthMeasureSpec, int heightMeasureSpec);
+    void setMeasuredDimension(int measuredWidth, int measuredHeight);
+    
+    // 布局相关 
+    virtual void layout(int left, int top, int right, int bottom);
+    virtual void onLayout(bool changed, int left, int top, int right, int bottom);
+    
+    // 绘制相关
+    virtual void onDraw(Renderer* renderer);
+    
+    int getMeasuredWidth() const { return measuredWidth; }
+    int getMeasuredHeight() const { return measuredHeight; }
 
 protected:
     // 具体事件处理方法
@@ -78,4 +92,7 @@ protected:
     bool visible;
     bool focused = false;
     static Widget* capturedWidget;  // 当前捕获事件的控件
+    
+    int measuredWidth = 0;
+    int measuredHeight = 0;
 }; 

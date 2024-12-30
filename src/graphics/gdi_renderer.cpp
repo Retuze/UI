@@ -22,9 +22,14 @@ GDIRenderer::GDIRenderer(HWND hwnd) : hwnd(hwnd), width(0), height(0),
 }
 
 GDIRenderer::~GDIRenderer() {
-    // 确保渲染线程已经停止
+    // 停止线程
     running = false;
-    renderCV.notify_all();
+    vsyncCV.notify_all();
+    renderQueueCV.notify_all();
+    
+    if (vsyncThread.joinable()) {
+        vsyncThread.join();
+    }
     if (renderThread.joinable()) {
         renderThread.join();
     }
@@ -112,9 +117,12 @@ bool GDIRenderer::processEvents() {
             shouldClose = true;
             return false;
         }
+        
+        // 处理Windows消息
         TranslateMessage(&msg);
         DispatchMessage(&msg);
     }
+    
     return !shouldClose;
 }
 
@@ -402,38 +410,10 @@ bool GDIRenderer::initialize(HWND hwnd) {
     clear(Color(255, 255, 255));
     present();
     
-    // 启动渲染线程
+    // 启动线程
     running = true;
-    renderThread = std::thread([this]() {
-        using namespace std::chrono;
-        auto lastFrame = steady_clock::now();
-        
-        while (running) {
-            auto now = steady_clock::now();
-            auto frameTime = duration_cast<nanoseconds>(now - lastFrame);
-            
-            // 计算需要休眠的时间
-            auto nextFrame = lastFrame + milliseconds(16);
-            auto sleepTime = nextFrame - now;
-            
-            if (sleepTime > nanoseconds::zero()) {
-                // 使用条件变量等待，可以被resizeBuffers唤醒
-                std::unique_lock<std::mutex> lock(renderMutex);
-                renderCV.wait_for(lock, sleepTime);
-                
-                // 在持有锁的情况下执行渲染
-                clear(Color(255, 255, 255));
-                Choreographer::getInstance().doFrame(frameTime);
-                
-                if (renderCallback) {
-                    renderCallback(this);
-                    present();
-                }
-            }
-            
-            lastFrame = steady_clock::now();
-        }
-    });
+    vsyncThread = std::thread(&GDIRenderer::vsyncLoop, this);
+    renderThread = std::thread(&GDIRenderer::renderLoop, this);
     
     return true;
 }
@@ -459,60 +439,70 @@ void GDIRenderer::setFrameRate(int fps) {
 }
 
 bool GDIRenderer::resizeBuffers(int newWidth, int newHeight) {
-    std::unique_lock<std::mutex> lock(renderMutex);
+    RenderMessage msg{RenderMessage::Type::Resize};
+    // 设置resize参数...
     
-    // 保存旧的位图和尺寸
-    HBITMAP oldBitmap = hBitmap;
-    HDC oldHdcMem = hdcMem;
-    int oldWidth = width;
-    int oldHeight = height;
-    
-    // 创建新的DC和位图
-    hdcMem = CreateCompatibleDC(hdc);
-    if (!hdcMem) {
-        LOGE("创建新的兼容DC失败");
-        return false;
+    {
+        std::lock_guard<std::mutex> lock(renderQueueMutex);
+        renderQueue.push(msg);
     }
-    
-    width = newWidth;
-    height = newHeight;
-    hBitmap = CreateCompatibleBitmap(hdc, width, height);
-    if (!hBitmap) {
-        LOGE("创建新的兼容位图失败");
-        DeleteDC(hdcMem);
-        hdcMem = oldHdcMem;
-        width = oldWidth;
-        height = oldHeight;
-        return false;
-    }
-    
-    SelectObject(hdcMem, hBitmap);
-    clear(Color(255, 255, 255));
-    
-    // 复制旧内容到新缓冲区
-    if (oldBitmap && oldHdcMem) {
-        BitBlt(hdcMem, 0, 0, 
-               std::min(oldWidth, width), 
-               std::min(oldHeight, height),
-               oldHdcMem, 0, 0, SRCCOPY);
-    }
-    
-    // 立即渲染一帧
-    if (renderCallback) {
-        renderCallback(this);
-        present();
-    }
-    
-    // 清理旧资源
-    if (oldHdcMem) {
-        SelectObject(oldHdcMem, nullptr);
-        DeleteDC(oldHdcMem);
-    }
-    if (oldBitmap) {
-        DeleteObject(oldBitmap);
-    }
-    
-    // 通知渲染线程继续
-    renderCV.notify_one();
+    renderQueueCV.notify_one();
     return true;
+}
+
+void GDIRenderer::vsyncLoop() {
+    using namespace std::chrono;
+    auto vsyncInterval = milliseconds(17); // ~60Hz
+    
+    while (running) {
+        {
+            std::lock_guard<std::mutex> lock(vsyncMutex);
+            vsyncSignal = true;
+        }
+        vsyncCV.notify_one();
+        
+        std::this_thread::sleep_for(vsyncInterval);
+    }
+}
+
+void GDIRenderer::renderLoop() {
+    while (running) {
+        // 等待vsync信号
+        {
+            std::unique_lock<std::mutex> lock(vsyncMutex);
+            vsyncCV.wait(lock, [this]() { return vsyncSignal || !running; });
+            vsyncSignal = false;
+        }
+        
+        if (!running) break;
+        
+        // 处理渲染消息队列
+        std::queue<RenderMessage> messages;
+        {
+            std::lock_guard<std::mutex> lock(renderQueueMutex);
+            messages.swap(renderQueue);
+        }
+        
+        while (!messages.empty()) {
+            auto& msg = messages.front();
+            // 处理渲染消息...
+            messages.pop();
+        }
+        
+        // 执行实际渲染
+        if (renderCallback) {
+            clear(Color(255, 255, 255));
+            renderCallback(this);
+            present();
+        }
+    }
+}
+
+void GDIRenderer::invalidate() {
+    RenderMessage msg{RenderMessage::Type::Invalidate};
+    {
+        std::lock_guard<std::mutex> lock(renderQueueMutex);
+        renderQueue.push(msg);
+    }
+    renderQueueCV.notify_one();
 }

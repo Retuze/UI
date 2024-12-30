@@ -2,14 +2,11 @@
 #include "core/event.h"
 #include "graphics/renderer.h"
 #include <windows.h>
-#include <vector>
-#include <functional>
 #include <atomic>
 #include <thread>
 #include <mutex>
 #include <condition_variable>
-
-class Activity;  // 前向声明
+#include <queue>
 
 class GDIRenderer : public Renderer {
 public:
@@ -59,6 +56,8 @@ public:
     
     bool resizeBuffers(int newWidth, int newHeight);
     
+    void invalidate() override;
+    
 protected:
     void* lockRect(const Rect& rect, int* stride) override;
     void unlockRect() override;
@@ -71,13 +70,40 @@ private:
     HBITMAP hBitmap;
     int width;
     int height;
-    bool shouldClose = false;
+    std::atomic<bool> shouldClose{false};
+    
+    // 线程相关
+    std::thread vsyncThread;      // vsync信号线程
+    std::thread renderThread;     // 渲染线程
+    std::atomic<bool> running{false};
+    
+    // 同步相关
+    std::mutex vsyncMutex;
+    std::condition_variable vsyncCV;
+    std::atomic<bool> vsyncSignal{false};
+    
+    // 渲染消息队列
+    struct RenderMessage {
+        enum Type {
+            Invalidate,
+            Resize,
+            // 其他渲染消息类型...
+        };
+        Type type;
+        // 消息数据...
+    };
+    
+    std::queue<RenderMessage> renderQueue;
+    std::mutex renderQueueMutex;
+    std::condition_variable renderQueueCV;
+    
+    // 线程函数
+    void vsyncLoop();        // vsync信号线程循环
+    void renderLoop();       // 渲染线程循环
     
     // 渲染相关
     std::vector<Rect> clipStack;
     void* lockedBits = nullptr;
-    std::thread renderThread;
-    std::atomic<bool> running{false};
     
     // 回调函数
     std::function<bool(const Event&)> eventHandler;
@@ -85,8 +111,6 @@ private:
     // 私有方法
     static ATOM registerClass();
     bool initialize(HWND hwnd);
-    void renderLoop();
-    static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
     
     // 添加帧率控制相关
     std::mutex renderMutex;
@@ -95,4 +119,6 @@ private:
     bool vsyncEnabled = false;
     
     std::function<void(Renderer*)> renderCallback;
+    
+    static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 }; 

@@ -39,6 +39,7 @@ public:
     virtual void setVSync(bool enabled) = 0;  // 垂直同步控制
     virtual void setFrameRate(int fps) = 0;   // 帧率控制
     virtual bool isHardwareAccelerated() const = 0;  // 是否硬件加速
+    virtual void invalidate() = 0;
 
 protected:
     // 辅助函数

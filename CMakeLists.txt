@@ -5,7 +5,7 @@ project(SimpleGUI VERSION 0.1.0 LANGUAGES CXX)
 cmake_policy(SET CMP0077 NEW)
 
 # 设置 C++ 标准
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # 包含 FetchContent 模块
@@ -34,6 +34,9 @@ FetchContent_MakeAvailable(freetype)
 
 # 添加 Windows Unicode 支持
 add_definitions(-DUNICODE -D_UNICODE)
+
+# 设置最低 Windows 版本为 Vista
+add_definitions(-D_WIN32_WINNT=0x0600 -DWINVER=0x0600)
 
 # 添加子目录
 add_subdirectory(src)
