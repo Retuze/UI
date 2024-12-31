@@ -4,6 +4,7 @@
 #include <vector>
 
 enum class EventType {
+    Unknown,
     MousePress,
     MouseRelease,
     MouseMove,

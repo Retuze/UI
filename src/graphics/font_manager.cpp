@@ -43,61 +43,109 @@ bool FontManager::loadFont(const std::string& fontPath, int size) {
     return true;
 }
 
-void FontManager::renderText(Renderer* renderer, const std::string& text, int x, int y, Color color) {
-    if (!face) return;
+void FontManager::renderText(Surface* surface, const std::string& text, 
+                           float x, float y, Color color, const Rect& clipRect) {
+    if (!face || !surface) return;
     
-    int pen_x = x;
-    int pen_y = y;
+    int pen_x = static_cast<int>(x * 64);  // 26.6 固定小数点格式
+    int pen_y = static_cast<int>(y * 64);
     
-    const unsigned char* str = (const unsigned char*)text.c_str();
-    while (*str) {
-        // UTF-8 解码部分保持不变
-        uint32_t code;
-        if ((*str & 0x80) == 0) {
-            code = *str++;
-        } else if ((*str & 0xE0) == 0xC0) {
-            code = (*str++ & 0x1F) << 6;
-            code |= (*str++ & 0x3F);
-        } else if ((*str & 0xF0) == 0xE0) {
-            code = (*str++ & 0x0F) << 12;
-            code |= (*str++ & 0x3F) << 6;
-            code |= (*str++ & 0x3F);
-        } else {
-            str++;
+    int stride;
+    auto* pixels = static_cast<uint32_t*>(surface->lock(&stride));
+    if (!pixels) return;
+    
+    FT_Int32 loadFlags = FT_LOAD_RENDER | FT_LOAD_TARGET_NORMAL;
+    
+    // 遍历并渲染每个字符
+    const unsigned char* p = reinterpret_cast<const unsigned char*>(text.c_str());
+    while (*p) {
+        // UTF-8解码
+        uint32_t charCode;
+        int charLen = decodeUTF8(p, &charCode);
+        if (charLen == 0) break;
+        p += charLen;
+        
+        // 加载字形
+        if (FT_Load_Char(face, charCode, loadFlags)) {
             continue;
         }
         
-        // 使用普通渲染模式，不使用LCD
-        if (FT_Load_Char(face, code, FT_LOAD_RENDER)) {
-            continue;
-        }
+        FT_GlyphSlot slot = face->glyph;
+        FT_Bitmap& bitmap = slot->bitmap;
         
-        FT_Bitmap& bitmap = face->glyph->bitmap;
-        int left = pen_x + face->glyph->bitmap_left;
-        int top = pen_y - face->glyph->bitmap_top;
+        // 计算字形位置
+        int x0 = pen_x + slot->bitmap_left * 64;
+        int y0 = pen_y - slot->bitmap_top * 64;
         
-        // 简化的alpha混合
-        for (unsigned int row = 0; row < bitmap.rows; row++) {
-            for (unsigned int col = 0; col < bitmap.width; col++) {
-                unsigned char alpha = bitmap.buffer[row * bitmap.pitch + col];
-                if (alpha > 0) {
-                    float normalizedAlpha = alpha / 255.0f;
-                    
-                    Color pixelColor = color;
-                    Color bgColor = renderer->getPixel(left + col, top + row);
-                    
-                    // 线性插值混合
-                    pixelColor.r = (uint8_t)(color.r * normalizedAlpha + bgColor.r * (1 - normalizedAlpha));
-                    pixelColor.g = (uint8_t)(color.g * normalizedAlpha + bgColor.g * (1 - normalizedAlpha));
-                    pixelColor.b = (uint8_t)(color.b * normalizedAlpha + bgColor.b * (1 - normalizedAlpha));
-                    
-                    renderer->setPixel(left + col, top + row, pixelColor);
-                }
-            }
-        }
+        // 渲染字形
+        renderGlyph(pixels, stride, bitmap, x0 >> 6, y0 >> 6, color, clipRect);
         
-        pen_x += face->glyph->advance.x >> 6;
+        // 更新笔位置
+        pen_x += slot->advance.x;
+        pen_y += slot->advance.y;
     }
+    
+    surface->unlock();
+}
+
+void FontManager::renderGlyph(uint32_t* pixels, int stride,
+                            const FT_Bitmap& bitmap, int x, int y,
+                            Color color, const Rect& clipRect) {
+    // 遍历字形的每个像素
+    for (unsigned int row = 0; row < bitmap.rows; row++) {
+        int dy = y + row;
+        // 跳过裁剪区域外的像素
+        if (dy < clipRect.y || dy >= clipRect.y + clipRect.height) continue;
+        
+        for (unsigned int col = 0; col < bitmap.width; col++) {
+            int dx = x + col;
+            // 跳过裁剪区域外的像素
+            if (dx < clipRect.x || dx >= clipRect.x + clipRect.width) continue;
+            
+            // 获取字形像素的alpha值
+            unsigned char alpha = bitmap.buffer[row * bitmap.pitch + col];
+            if (alpha == 0) continue;  // 跳过完全透明的像素
+            
+            // 计算目标像素位置
+            uint32_t* pixel = pixels + dy * (stride / 4) + dx;
+            
+            // 读取背景色
+            uint32_t bg = *pixel;
+            uint8_t bg_r = (bg >> 16) & 0xFF;
+            uint8_t bg_g = (bg >> 8) & 0xFF;
+            uint8_t bg_b = bg & 0xFF;
+            
+            // Alpha混合
+            float a = alpha / 255.0f;
+            uint8_t r = static_cast<uint8_t>(color.r * a + bg_r * (1 - a));
+            uint8_t g = static_cast<uint8_t>(color.g * a + bg_g * (1 - a));
+            uint8_t b = static_cast<uint8_t>(color.b * a + bg_b * (1 - a));
+            
+            // 写回混合后的颜色
+            *pixel = (r << 16) | (g << 8) | b;
+        }
+    }
+}
+
+int FontManager::decodeUTF8(const unsigned char* str, uint32_t* out_codepoint) {
+    if ((*str & 0x80) == 0) {
+        *out_codepoint = *str;
+        return 1;
+    } else if ((*str & 0xE0) == 0xC0) {
+        if ((str[1] & 0xC0) != 0x80) return 0;
+        *out_codepoint = ((str[0] & 0x1F) << 6) | (str[1] & 0x3F);
+        return 2;
+    } else if ((*str & 0xF0) == 0xE0) {
+        if ((str[1] & 0xC0) != 0x80 || (str[2] & 0xC0) != 0x80) return 0;
+        *out_codepoint = ((str[0] & 0x0F) << 12) | ((str[1] & 0x3F) << 6) | (str[2] & 0x3F);
+        return 3;
+    } else if ((*str & 0xF8) == 0xF0) {
+        if ((str[1] & 0xC0) != 0x80 || (str[2] & 0xC0) != 0x80 || (str[3] & 0xC0) != 0x80) return 0;
+        *out_codepoint = ((str[0] & 0x07) << 18) | ((str[1] & 0x3F) << 12) | 
+                        ((str[2] & 0x3F) << 6) | (str[3] & 0x3F);
+        return 4;
+    }
+    return 0;
 }
 
 FontManager::~FontManager() {

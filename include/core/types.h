@@ -1,4 +1,5 @@
 #pragma once
+#include <algorithm>
 #include <cstdint>
 #include <windef.h>
 #include <windows.h>
@@ -14,21 +15,58 @@ struct Size {
 };
 
 struct Rect {
-    int x, y, width, height;
-    Rect(int x = 0, int y = 0, int w = 0, int h = 0) 
-        : x(x), y(y), width(w), height(h) {}
+    int x = 0, y = 0;
+    int width = 0, height = 0;
     
-    bool contains(const Point& p) const {
-        return p.x >= x && p.x < x + width &&
-               p.y >= y && p.y < y + height;
+    Rect() = default;
+    Rect(int x, int y, int width, int height)
+        : x(x), y(y), width(width), height(height) {}
+        
+    Rect intersect(const Rect& other) const {
+        int l = std::max(x, other.x);
+        int t = std::max(y, other.y);
+        int r = std::min(x + width, other.x + other.width);
+        int b = std::min(y + height, other.y + other.height);
+        
+        if (l >= r || t >= b) return Rect();
+        return Rect(l, t, r - l, b - t);
+    }
+    
+    bool isEmpty() const {
+        return width <= 0 || height <= 0;
     }
 };
 
+class Bitmap {
+public:
+    Bitmap(int width, int height);
+    ~Bitmap();
+    
+    void* getPixels() const { return pixels; }
+    int getWidth() const { return width; }
+    int getHeight() const { return height; }
+    int getStride() const { return stride; }
+    
+private:
+    void* pixels = nullptr;
+    int width = 0;
+    int height = 0;
+    int stride = 0;
+};
+
 struct Color {
+    static const Color Black;  // RGB(0, 0, 0)
+    static const Color White;  // RGB(255, 255, 255)
+    // ... other colors ...
+    
     uint8_t r, g, b, a;
     Color(uint8_t r = 0, uint8_t g = 0, uint8_t b = 0, uint8_t a = 255)
         : r(r), g(g), b(b), a(a) {}
-}; 
+    
+    uint32_t toARGB() const {
+        return (a << 24) | (r << 16) | (g << 8) | b;
+    }
+};
 
 // 像素格式枚举
 enum class PixelFormat {
@@ -36,29 +74,4 @@ enum class PixelFormat {
     RGB888,    // 24位
     RGBA8888,  // 32位
     A8,        // 8位alpha通道，用于字体渲染
-}; 
-
-// 添加 DPI 相关辅助函数
-struct DPIHelper {
-    static int Scale(int value) {
-        static int dpi = []() {
-            HDC hdc = GetDC(NULL);
-            int dpi = GetDeviceCaps(hdc, LOGPIXELSY);
-            ReleaseDC(NULL, hdc);
-            return dpi;
-        }();
-        return MulDiv(value, dpi, 96);
-    }
-    
-    static Point Scale(const Point& p) {
-        return Point(Scale(p.x), Scale(p.y));
-    }
-    
-    static Size Scale(const Size& s) {
-        return Size(Scale(s.width), Scale(s.height));
-    }
-    
-    static Rect Scale(const Rect& r) {
-        return Rect(Scale(r.x), Scale(r.y), Scale(r.width), Scale(r.height));
-    }
 }; 

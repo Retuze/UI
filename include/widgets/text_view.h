@@ -1,27 +1,35 @@
 #pragma once
-#include "widgets/widget.h"
+#include "view/view.h"
+#include "graphics/paint.h"
 #include <string>
 
-class TextView : public Widget {
-public:
-    explicit TextView(const std::string& text = "");
-    
-    void draw(Renderer* renderer) override;
-    
-    // 基本属性设置
-    void setText(const std::string& text);
-    void setTextColor(const Color& color);
-    void setTextSize(int size);
-    
-    // Padding
-    void setPadding(int left, int top, int right, int bottom);
+enum class TextAlignment {
+    Left,
+    Center,
+    Right
+};
 
+class TextView : public View {
+public:
+    TextView();
+    explicit TextView(const std::string& text);
+    
+    // 文本相关方法
+    void setText(const std::string& text);
+    const std::string& getText() const { return text; }
+    
+    // 样式设置
+    void setTextSize(float size);
+    void setTextColor(Color color);
+    void setTextAlignment(TextAlignment alignment);
+    
+    // 重写基类方法
+    void onDraw(RenderContext& context) override;
+    void onMeasure(int widthMeasureSpec, int heightMeasureSpec) override;
+    
 protected:
     std::string text;
-    Color textColor{0, 0, 0};  // 默认黑色
-    int textSize = 24;         // 默认字号
-    
-    struct {
-        int left = 0, top = 0, right = 0, bottom = 0;
-    } padding;
+    Paint textPaint;
+    TextAlignment textAlignment = TextAlignment::Left;
+    float padding = 8.0f;  // 默认内边距
 }; 

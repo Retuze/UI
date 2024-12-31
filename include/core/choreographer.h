@@ -21,6 +21,8 @@ public:
                      
     void removeCallback(CallbackType type, const void* token);
     
+    void doFrame(std::chrono::nanoseconds frameTimeNanos);
+    
 private:
     struct CallbackRecord {
         CallbackType type;

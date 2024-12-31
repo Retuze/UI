@@ -1,21 +1,54 @@
 #include "activity/activity.h"
 
-void Activity::setContentView(Widget* root) {
-    if (rootView) {
-        delete rootView;
+void Activity::setContentView(View* view) {
+    if (contentView) {
+        delete contentView;
     }
-    rootView = root;
+    contentView = view;
+    
+    // 如果Activity已经启动,需要触发布局
+    if (contentView && isStarted()) {
+        contentView->requestLayout();
+        contentView->invalidate();
+    }
 }
 
-bool Activity::handleEvent(const Event& event) {
-    if (rootView) {
-        return rootView->dispatchEvent(event);
-    }
-    return false;
+bool Activity::isStarted() const {
+    return state >= ActivityState::Started;
 }
 
-void Activity::draw(Renderer* renderer) {
-    if (rootView) {
-        rootView->draw(renderer);
-    }
+bool Activity::isResumed() const {
+    return state == ActivityState::Resumed;
+}
+
+void Activity::dispatchCreate() {
+    state = ActivityState::Created;
+    onCreate();
+}
+
+void Activity::dispatchStart() {
+    state = ActivityState::Started;
+    onStart();
+}
+
+void Activity::dispatchResume() {
+    state = ActivityState::Resumed;
+    onResume();
+}
+
+void Activity::dispatchPause() {
+    state = ActivityState::Paused;
+    onPause();
+}
+
+void Activity::dispatchStop() {
+    state = ActivityState::Stopped;
+    onStop();
+}
+
+void Activity::dispatchDestroy() {
+    state = ActivityState::Destroyed;
+    onDestroy();
+    delete contentView;
+    contentView = nullptr;
 } 

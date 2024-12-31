@@ -5,28 +5,34 @@ Choreographer& Choreographer::getInstance() {
     return instance;
 }
 
-void Choreographer::postFrameCallback(std::function<void(std::chrono::nanoseconds)> callback, const void* token) {
+void Choreographer::postCallback(CallbackType type, 
+                               std::function<void(std::chrono::nanoseconds)> callback,
+                               const void* token) {
     std::lock_guard<std::mutex> lock(mutex);
-    frameCallbacks.push_back(FrameCallback{std::move(callback), token});
+    callbacks[type].push_back(CallbackRecord{type, std::move(callback), token});
 }
 
-void Choreographer::removeFrameCallback(const void* token) {
+void Choreographer::removeCallback(CallbackType type, const void* token) {
     std::lock_guard<std::mutex> lock(mutex);
-    auto it = std::remove_if(frameCallbacks.begin(), frameCallbacks.end(),
+    auto& queue = callbacks[type];
+    auto it = std::remove_if(queue.begin(), queue.end(),
         [token](const auto& cb) {
             return cb.token == token;
         });
-    frameCallbacks.erase(it, frameCallbacks.end());
+    queue.erase(it, queue.end());
 }
 
 void Choreographer::doFrame(std::chrono::nanoseconds frameTimeNanos) {
-    std::vector<FrameCallback> callbacks;
-    {
-        std::lock_guard<std::mutex> lock(mutex);
-        callbacks = frameCallbacks;
-    }
-    
-    for (const auto& cb : callbacks) {
-        cb.callback(frameTimeNanos);
+    // 按优先级顺序执行回调
+    for (int type = 0; type < 4; type++) {
+        std::vector<CallbackRecord> records;
+        {
+            std::lock_guard<std::mutex> lock(mutex);
+            records = callbacks[type];
+        }
+        
+        for (const auto& record : records) {
+            record.callback(frameTimeNanos);
+        }
     }
 } 
