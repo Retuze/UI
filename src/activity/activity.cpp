@@ -1,15 +1,32 @@
 #include "activity/activity.h"
 
+Activity::Activity() {
+    rootLayout = std::make_unique<LinearLayout>(LinearLayout::Orientation::Vertical);
+    rootLayout->setLayoutParams({LayoutParams::MATCH_PARENT, LayoutParams::MATCH_PARENT});
+}
+
 void Activity::setContentView(View* view) {
+    setContentView(view, LayoutParams(LayoutParams::MATCH_PARENT, LayoutParams::MATCH_PARENT));
+}
+
+void Activity::setContentView(View* view, const LayoutParams& params) {
     if (contentView) {
+        rootLayout->removeView(contentView);
         delete contentView;
     }
     contentView = view;
-    
-    // 如果Activity已经启动,需要触发布局
-    if (contentView && isStarted()) {
-        contentView->requestLayout();
-        contentView->invalidate();
+    if (view) {
+        view->setLayoutParams(params);
+        rootLayout->addView(view);
+        
+        rootLayout->measure(MeasureSpec::makeMeasureSpec(800, MeasureSpec::EXACTLY),
+                          MeasureSpec::makeMeasureSpec(600, MeasureSpec::EXACTLY));
+        rootLayout->layout(0, 0, 800, 600);
+        
+        if (isStarted()) {
+            rootLayout->requestLayout();
+            rootLayout->invalidate();
+        }
     }
 }
 

@@ -4,20 +4,20 @@
 #include <vector>
 
 enum class EventType {
-    Unknown,
+    None,
     MousePress,
     MouseRelease,
     MouseMove,
     KeyPress,
-    KeyRelease
+    KeyRelease,
+    Quit
 };
 
 struct Event {
-    Event() = default;
-    Event(EventType type) : type(type) {}
-    
-    EventType type;
-    Point position;
+    EventType type = EventType::None;
+    int x = 0;
+    int y = 0;
+    int key = 0;
     int button = 0;
 };
 

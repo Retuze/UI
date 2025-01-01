@@ -1,6 +1,7 @@
 #include "graphics/ui_thread.h"
 #include "core/looper.h"
 #include "core/choreographer.h"
+#include "application/application.h"
 
 UIThread& UIThread::getInstance() {
     static UIThread instance;
@@ -15,6 +16,13 @@ void UIThread::initialize() {
     
     // 保存UI线程ID
     uiThreadId = std::this_thread::get_id();
+    
+    // 初始化 Choreographer
+    Choreographer::getInstance().setFrameCallback([this]() {
+        if (Application::getInstance().getCurrentActivity()) {
+            Application::getInstance().render();
+        }
+    });
     
     // 启动UI线程
     running = true;

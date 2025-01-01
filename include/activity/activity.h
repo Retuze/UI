@@ -1,5 +1,7 @@
 #pragma once
 #include "view/view.h"
+#include "view/linear_layout.h"
+#include <memory>
 
 class Activity {
 public:
@@ -12,19 +14,22 @@ public:
         Destroyed
     };
 
+    Activity();
     virtual ~Activity() = default;
     
     // 生命周期方法
-    virtual void onCreate() = 0;
-    virtual void onStart() = 0;
-    virtual void onResume() = 0;
-    virtual void onPause() = 0;
-    virtual void onStop() = 0;
-    virtual void onDestroy() = 0;
+    virtual void onCreate() {}
+    virtual void onStart() {}
+    virtual void onResume() {}
+    virtual void onPause() {}
+    virtual void onStop() {}
+    virtual void onDestroy() {}
     
     // 内容视图管理
     void setContentView(View* view);
+    void setContentView(View* view, const LayoutParams& params);
     View* getContentView() const { return contentView; }
+    LinearLayout* getRootLayout() const { return rootLayout.get(); }
     
     // 状态查询
     ActivityState getState() const { return state; }
@@ -38,8 +43,9 @@ public:
     void dispatchPause();
     void dispatchStop();
     void dispatchDestroy();
-
+    
 protected:
+    ActivityState state = ActivityState::Created;
     View* contentView = nullptr;
-    ActivityState state = ActivityState::Destroyed;
+    std::unique_ptr<LinearLayout> rootLayout;
 }; 

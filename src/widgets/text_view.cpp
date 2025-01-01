@@ -5,7 +5,7 @@ TextView::TextView() : TextView("") {}
 
 TextView::TextView(const std::string& text) : text(text) {
     textPaint.setTextSize(16.0f);  // 默认字体大小
-    textPaint.setColor(Color::Black);  // 默认颜色
+    textPaint.setColor(Color::Black());  // 默认颜色
 }
 
 void TextView::setText(const std::string& text) {
@@ -48,7 +48,7 @@ void TextView::onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
 void TextView::onDraw(RenderContext& context) {
     // 绘制背景
     Paint bgPaint;
-    bgPaint.setColor(Color::White);
+    bgPaint.setColor(Color::White());
     context.drawRect(bounds, bgPaint);
     
     // 计算文本位置

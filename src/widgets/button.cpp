@@ -1,4 +1,7 @@
 #include "widgets/button.h"
+#include "core/logger.h"
+
+LOG_TAG("Button");
 
 Button::Button() : Button("") {}
 
@@ -48,4 +51,7 @@ void Button::onDraw(RenderContext& context) {
     
     // 调用父类绘制文本
     TextView::onDraw(context);
+    LOGI("Drawing button at: %d,%d size: %dx%d text: %s",
+    bounds.x, bounds.y, bounds.width, bounds.height,
+    getText().c_str());
 } 

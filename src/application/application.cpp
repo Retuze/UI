@@ -1,4 +1,5 @@
 #include "application/application.h"
+#include "core/logger.h"
 #include <algorithm>
 
 Application& Application::getInstance() {
@@ -7,9 +8,15 @@ Application& Application::getInstance() {
 }
 
 void Application::onCreate() {
+    // 初始化日志系统
+    Logger::instance().initialize();
+    
     // 初始化渲染上下文
     renderContext = std::make_unique<RenderContext>();
-    renderContext->initialize(800, 600);
+    if (!renderContext->initialize(800, 600)) {
+        // 添加错误处理
+        throw std::runtime_error("Failed to initialize render context");
+    }
 }
 
 void Application::onTerminate() {
@@ -74,4 +81,43 @@ void Application::finishActivity(Activity* activity) {
     activity->dispatchDestroy();
     activities.erase(it);
     delete activity;
+}
+
+bool Application::pollEvent(Event& event) {
+    // 检查渲染上下文是否有效
+    if (!renderContext || !renderContext->getSurface()) {
+        return false;
+    }
+    
+    // 从窗口系统获取事件
+    return renderContext->getSurface()->pollEvent(event);
+}
+
+void Application::dispatchEvent(const Event& event) {
+    // 如果当前Activity存在，将事件分发给它的内容视图
+    if (currentActivity) {
+        if (View* contentView = currentActivity->getContentView()) {
+            contentView->dispatchEvent(event);
+        }
+    }
+}
+
+void Application::render() {
+    // 检查渲染上下文是否有效
+    if (!renderContext) {
+        return;
+    }
+    
+    // 清除背景
+    renderContext->clear(Color(255, 255, 255)); // 白色背景
+    
+    // 如果当前Activity存在，绘制其内容视图
+    if (currentActivity) {
+        if (View* contentView = currentActivity->getContentView()) {
+            contentView->draw(*renderContext);
+        }
+    }
+    
+    // 呈现到屏幕
+    renderContext->present();
 } 

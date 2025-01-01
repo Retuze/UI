@@ -16,6 +16,10 @@ public:
     RenderContext* getRenderContext() { return renderContext.get(); }
     Activity* getCurrentActivity() { return currentActivity; }
     
+    bool pollEvent(Event& event);
+    void dispatchEvent(const Event& event);
+    void render();
+    
 private:
     std::vector<Activity*> activities;
     Activity* currentActivity = nullptr;

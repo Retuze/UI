@@ -42,5 +42,5 @@ add_definitions(-D_WIN32_WINNT=0x0600 -DWINVER=0x0600)
 add_subdirectory(src)
 
 # 构建示例  
-add_executable(surface_test examples/surface_test.cpp)
-target_link_libraries(surface_test PRIVATE simplegui)
+add_executable(demo examples/demo.cpp)
+target_link_libraries(demo PRIVATE simplegui)

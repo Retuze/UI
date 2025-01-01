@@ -18,6 +18,8 @@ public:
     // 判断当前是否为UI线程
     bool isUiThread() const;
     
+    Looper* getLooper() const { return Looper::getForThread().get(); }
+    
 private:
     UIThread() = default;
     ~UIThread() = default;

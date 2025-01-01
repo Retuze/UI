@@ -29,6 +29,8 @@ public:
     void unlockPixels();
     void present();
     
+    Surface* getSurface() const { return surface.get(); }
+    
 private:
     std::unique_ptr<Surface> surface;
     std::vector<Rect> clipStack;

@@ -55,23 +55,76 @@ private:
 };
 
 struct Color {
-    static const Color Black;  // RGB(0, 0, 0)
-    static const Color White;  // RGB(255, 255, 255)
-    // ... other colors ...
-    
     uint8_t r, g, b, a;
+    
     Color(uint8_t r = 0, uint8_t g = 0, uint8_t b = 0, uint8_t a = 255)
         : r(r), g(g), b(b), a(a) {}
-    
-    uint32_t toARGB() const {
+
+    // 大端序 (网络字节序, 高位在前)
+    uint32_t toBGRA8888BE() const {
+        return (b << 24) | (g << 16) | (r << 8) | a;
+    }
+
+    uint32_t toRGBA8888BE() const {
+        return (r << 24) | (g << 16) | (b << 8) | a;
+    }
+
+    // 小端序 (x86字节序, 低位在前)
+    uint32_t toBGRA8888LE() const {
         return (a << 24) | (r << 16) | (g << 8) | b;
     }
+
+    uint32_t toRGBA8888LE() const {
+        return (a << 24) | (b << 16) | (g << 8) | r;
+    }
+
+    // 24位色
+    uint32_t toRGB888BE() const {
+        return (r << 16) | (g << 8) | b;
+    }
+
+    // 16位色
+    uint16_t toRGB565BE() const {
+        return ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3);
+    }
+
+    // 8位alpha
+    uint8_t toA8BE() const {
+        return a;
+    }
+
+    // 24位色
+    uint32_t toRGB888LE() const {
+        return (b << 16) | (g << 8) | r;
+    }
+
+    // 16位色
+    uint16_t toRGB565LE() const {
+        return ((b >> 3) << 11) | ((g >> 2) << 5) | (r >> 3);
+    }
+
+    // 8位alpha
+    uint8_t toA8LE() const {
+        return a;
+    }
+
+    static const Color& White() { static const Color c{255, 255, 255}; return c; }
+    static const Color& Black() { static const Color c{0, 0, 0}; return c; }
+    static const Color& Gray() { static const Color c{128, 128, 128}; return c; }
+    static const Color& LightGray() { static const Color c{192, 192, 192}; return c; }
+    static const Color& DarkGray() { static const Color c{64, 64, 64}; return c; }
 };
 
 // 像素格式枚举
 enum class PixelFormat {
-    RGB565,    // 16位，嵌入式常用
-    RGB888,    // 24位
-    RGBA8888,  // 32位
-    A8,        // 8位alpha通道，用于字体渲染
+    RGB565BE,     // 16位，嵌入式常用
+    RGB888BE,     // 24位
+    RGBA8888BE,   // 32位
+    BGRA8888BE,   // 32位
+    A8BE,         // 8位alpha通道，用于字体渲染
+    RGB565LE,     // 16位，嵌入式常用
+    RGB888LE,     // 24位
+    RGBA8888LE,   // 32位，Windows GDI默认格式
+    BGRA8888LE,   // 32位
+    A8LE,         // 8位alpha通道，用于字体渲染
 }; 

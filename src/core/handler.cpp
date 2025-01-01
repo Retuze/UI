@@ -1,8 +1,5 @@
 #include "core/handler.h"
 
-Handler::Handler(Looper* looper) : looper(looper) {
-}
-
 Handler::~Handler() {
     if (looper && looper->getQueue()) {
         looper->getQueue()->removeMessagesForHandler(this);

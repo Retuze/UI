@@ -26,17 +26,17 @@ bool FontManager::loadFont(const std::string& fontPath, int size) {
         FT_Done_Face(face);
     }
     
-    LOGI("Loading font: ", fontPath, " with size: ", size);
+    LOGI("Loading font: %s with size: %d", fontPath.c_str(), size);
     
     if (FT_New_Face(library, fontPath.c_str(), 0, &face)) {
-        LOGE("Failed to load font: ", fontPath);
+        LOGE("Failed to load font: %s", fontPath.c_str());
         return false;
     }
     
     auto& dpiManager = DPIManager::getInstance();
     int adjustedSize = dpiManager.scaleY(size);
     
-    LOGD("Adjusted font size: ", adjustedSize, " (DPI: ", dpiManager.getDpiY(), ")");
+    LOGD("Adjusted font size: %d (DPI: %d)", adjustedSize, dpiManager.getDpiY());
     
     FT_Select_Charmap(face, FT_ENCODING_UNICODE);
     FT_Set_Pixel_Sizes(face, 0, adjustedSize);

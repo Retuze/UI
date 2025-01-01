@@ -5,7 +5,12 @@
 
 class Handler {
 public:
-    explicit Handler(Looper* looper);
+    explicit Handler(std::shared_ptr<Looper> looper) {
+        if (!looper) {
+            throw std::invalid_argument("Null looper provided to Handler constructor");
+        }
+        this->looper = std::move(looper);
+    }
     virtual ~Handler();
     
     // 发送普通消息
@@ -32,5 +37,5 @@ public:
     virtual void handleMessage(const Message& msg) {}
     
 protected:
-    Looper* looper;
+    std::shared_ptr<Looper> looper;
 }; 

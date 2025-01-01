@@ -103,4 +103,39 @@ void ViewGroup::measureChild(View* child, int parentWidthMeasureSpec, int parent
     } else {
         child->measure(parentWidthMeasureSpec, parentHeightMeasureSpec);
     }
+}
+
+void ViewGroup::onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+    // 默认实现：测量所有子视图并确定自身尺寸
+    int maxWidth = 0;
+    int maxHeight = 0;
+    
+    for (auto* child : children) {
+        if (child && child->getVisibility() != View::GONE) {
+            measureChild(child, widthMeasureSpec, heightMeasureSpec);
+            maxWidth = std::max(maxWidth, child->getMeasuredWidth());
+            maxHeight = std::max(maxHeight, child->getMeasuredHeight());
+        }
+    }
+    
+    // 考虑padding
+    maxWidth += getPaddingLeft() + getPaddingRight();
+    maxHeight += getPaddingTop() + getPaddingBottom();
+    
+    // 根据MeasureSpec调整最终尺寸
+    setMeasuredDimension(
+        MeasureSpec::resolveSize(maxWidth, widthMeasureSpec),
+        MeasureSpec::resolveSize(maxHeight, heightMeasureSpec)
+    );
+}
+
+void ViewGroup::onLayout(bool changed, int left, int top, int right, int bottom) {
+    // 默认实现：将所有子视图布局在(0,0)位置
+    for (auto* child : children) {
+        if (child && child->getVisibility() != View::GONE) {
+            child->layout(getPaddingLeft(), getPaddingTop(),
+                         getPaddingLeft() + child->getMeasuredWidth(),
+                         getPaddingTop() + child->getMeasuredHeight());
+        }
+    }
 } 

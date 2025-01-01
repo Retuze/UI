@@ -29,5 +29,5 @@ protected:
     
     // 布局相关
     virtual void onLayout(bool changed, int l, int t, int r, int b);
-    virtual void onMeasure(int widthMeasureSpec, int heightMeasureSpec);
+    virtual void onMeasure(int widthMeasureSpec, int heightMeasureSpec) override;
 }; 
