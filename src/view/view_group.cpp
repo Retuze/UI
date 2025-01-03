@@ -53,6 +53,10 @@ void ViewGroup::measure(int widthMeasureSpec, int heightMeasureSpec) {
     
     // 然后测量自己
     onMeasure(widthMeasureSpec, heightMeasureSpec);
+    
+    // 设置自己的bounds尺寸为测量尺寸
+    bounds.width = getMeasuredWidth();
+    bounds.height = getMeasuredHeight();
 }
 
 void ViewGroup::layout(int left, int top, int right, int bottom) {
@@ -60,18 +64,6 @@ void ViewGroup::layout(int left, int top, int right, int bottom) {
     
     bool changed = needsLayout;
     onLayout(changed, left, top, right, bottom);
-    
-    // 布局所有子视图
-    for (auto* child : children) {
-        if (child->isVisible() && !child->bounds.isEmpty()) {
-            child->layout(
-                child->bounds.x,
-                child->bounds.y,
-                child->bounds.x + child->bounds.width,
-                child->bounds.y + child->bounds.height
-            );
-        }
-    }
 }
 
 void ViewGroup::onDraw(RenderContext& context) {
@@ -98,31 +90,58 @@ bool ViewGroup::dispatchEvent(const Event& event) {
 }
 
 void ViewGroup::measureChild(View* child, int parentWidthMeasureSpec, int parentHeightMeasureSpec) {
-    if (layoutManager) {
-        layoutManager->measure(child, parentWidthMeasureSpec, parentHeightMeasureSpec);
+    auto& params = child->getLayoutParams();
+    
+    // 处理宽度的MeasureSpec
+    int childWidthSpec;
+    if (params.width == LayoutParams::MATCH_PARENT) {
+        // MATCH_PARENT: 使用父容器的大小
+        childWidthSpec = MeasureSpec::makeMeasureSpec(
+            MeasureSpec::getSize(parentWidthMeasureSpec) - paddingLeft - paddingRight,
+            MeasureSpec::EXACTLY);
+    } else if (params.width == LayoutParams::WRAP_CONTENT) {
+        // WRAP_CONTENT: 最大不超过父容器
+        childWidthSpec = MeasureSpec::makeMeasureSpec(
+            MeasureSpec::getSize(parentWidthMeasureSpec) - paddingLeft - paddingRight,
+            MeasureSpec::AT_MOST);
     } else {
-        child->measure(parentWidthMeasureSpec, parentHeightMeasureSpec);
+        // 固定大小
+        childWidthSpec = MeasureSpec::makeMeasureSpec(params.width, MeasureSpec::EXACTLY);
     }
+    
+    // 处理高度的MeasureSpec
+    int childHeightSpec;
+    if (params.height == LayoutParams::MATCH_PARENT) {
+        childHeightSpec = MeasureSpec::makeMeasureSpec(
+            MeasureSpec::getSize(parentHeightMeasureSpec) - paddingTop - paddingBottom,
+            MeasureSpec::EXACTLY);
+    } else if (params.height == LayoutParams::WRAP_CONTENT) {
+        childHeightSpec = MeasureSpec::makeMeasureSpec(
+            MeasureSpec::getSize(parentHeightMeasureSpec) - paddingTop - paddingBottom,
+            MeasureSpec::AT_MOST);
+    } else {
+        childHeightSpec = MeasureSpec::makeMeasureSpec(params.height, MeasureSpec::EXACTLY);
+    }
+    
+    child->measure(childWidthSpec, childHeightSpec);
 }
 
 void ViewGroup::onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-    // 默认实现：测量所有子视图并确定自身尺寸
+    // Only calculate max dimensions from already measured children
     int maxWidth = 0;
     int maxHeight = 0;
     
     for (auto* child : children) {
         if (child && child->getVisibility() != View::GONE) {
-            measureChild(child, widthMeasureSpec, heightMeasureSpec);
             maxWidth = std::max(maxWidth, child->getMeasuredWidth());
             maxHeight = std::max(maxHeight, child->getMeasuredHeight());
         }
     }
     
-    // 考虑padding
+    // Consider padding
     maxWidth += getPaddingLeft() + getPaddingRight();
     maxHeight += getPaddingTop() + getPaddingBottom();
     
-    // 根据MeasureSpec调整最终尺寸
     setMeasuredDimension(
         MeasureSpec::resolveSize(maxWidth, widthMeasureSpec),
         MeasureSpec::resolveSize(maxHeight, heightMeasureSpec)
@@ -130,12 +149,19 @@ void ViewGroup::onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
 }
 
 void ViewGroup::onLayout(bool changed, int left, int top, int right, int bottom) {
-    // 默认实现：将所有子视图布局在(0,0)位置
     for (auto* child : children) {
-        if (child && child->getVisibility() != View::GONE) {
-            child->layout(getPaddingLeft(), getPaddingTop(),
-                         getPaddingLeft() + child->getMeasuredWidth(),
-                         getPaddingTop() + child->getMeasuredHeight());
+        if (child && child->isVisible()) {
+            // 使用子视图的测量尺寸和原始位置
+            int childWidth = child->getMeasuredWidth();
+            int childHeight = child->getMeasuredHeight();
+            
+            // 保持原始位置，但使用测量后的尺寸
+            child->layout(
+                child->bounds.x,  // 保持原始x位置
+                child->bounds.y,  // 保持原始y位置
+                child->bounds.x + childWidth,  // 使用测量宽度
+                child->bounds.y + childHeight  // 使用测量高度
+            );
         }
     }
 } 

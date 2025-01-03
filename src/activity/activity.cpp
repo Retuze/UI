@@ -1,4 +1,5 @@
 #include "activity/activity.h"
+#include "application/application.h"
 
 Activity::Activity() {
     rootLayout = std::make_unique<LinearLayout>(LinearLayout::Orientation::Vertical);
@@ -18,15 +19,7 @@ void Activity::setContentView(View* view, const LayoutParams& params) {
     if (view) {
         view->setLayoutParams(params);
         rootLayout->addView(view);
-        
-        rootLayout->measure(MeasureSpec::makeMeasureSpec(800, MeasureSpec::EXACTLY),
-                          MeasureSpec::makeMeasureSpec(600, MeasureSpec::EXACTLY));
-        rootLayout->layout(0, 0, 800, 600);
-        
-        if (isStarted()) {
-            rootLayout->requestLayout();
-            rootLayout->invalidate();
-        }
+        viewRoot.setView(rootLayout.get());
     }
 }
 
@@ -40,6 +33,9 @@ bool Activity::isResumed() const {
 
 void Activity::dispatchCreate() {
     state = ActivityState::Created;
+    if (auto* context = Application::getInstance().getRenderContext()) {
+        viewRoot.setRenderContext(context);
+    }
     onCreate();
 }
 

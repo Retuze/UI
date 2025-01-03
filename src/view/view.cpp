@@ -17,15 +17,10 @@ void View::measure(int widthMeasureSpec, int heightMeasureSpec)
 
 void View::layout(int left, int top, int right, int bottom)
 {
-  bool changed = bounds.x != left || bounds.y != top ||
-                 bounds.width != (right - left) ||
-                 bounds.height != (bottom - top);
-
   bounds.x = left;
   bounds.y = top;
   bounds.width = right - left;
   bounds.height = bottom - top;
-
   needsLayout = false;
 }
 

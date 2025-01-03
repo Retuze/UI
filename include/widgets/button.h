@@ -18,6 +18,6 @@ protected:
 private:
     OnClickListener clickListener;
     bool pressed = false;
-    Color normalColor = Color::LightGray();
-    Color pressedColor = Color::Gray();
+    Color normalColor{192, 192, 192};    // 浅灰色
+    Color pressedColor{128, 128, 128};   // 深灰色
 }; 

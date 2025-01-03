@@ -47,7 +47,7 @@ void Button::onDraw(RenderContext& context) {
     // 绘制按钮背景
     Paint bgPaint;
     bgPaint.setColor(pressed ? pressedColor : normalColor);
-    context.drawRoundRect(bounds, 4.0f, bgPaint);
+    context.drawRect(bounds, bgPaint);
     
     // 调用父类绘制文本
     TextView::onDraw(context);

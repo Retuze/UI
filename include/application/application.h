@@ -1,6 +1,7 @@
 #pragma once
 #include "activity/activity.h"
 #include "graphics/render_context.h"
+#include "view/view_root_impl.h"
 #include <vector>
 #include <memory>
 

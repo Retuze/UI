@@ -1,47 +1,42 @@
 #include "application/application.h"
-#include "graphics/render_context.h"
+#include "widgets/text_view.h"
+#include "widgets/button.h"
+#include "view/linear_layout.h"
+#include "graphics/font_manager.h"
+#include "core/logger.h"
 #include <thread>
 #include <chrono>
-#include "core/logger.h"
-#include "graphics/font_manager.h"
 
 LOG_TAG("demo");
-class CustomView : public View {
-    void onDraw(RenderContext& context) override {
-        
-        // 1. 先绘制白色背景
-        Paint bgPaint;
-        bgPaint.setColor(Color(255, 255, 255));  // 白色
-        context.drawRect(bounds, bgPaint);
-        
-        // 2. 绘制红色矩形作为参考
-        Paint paint;
-        paint.setColor(Color(255, 0, 0)); // 红色
-        Rect rect(100, 100, 200, 150);
-        context.drawRect(rect, paint);
-        
-        // 3. 绘制文本，使用更大的字号和明显的颜色
-        Paint textPaint;
-        textPaint.setColor(Color(0, 0, 255));  // 蓝色
-        textPaint.setTextSize(32.0f);  // 更大的字号
-        
-        // 在不同位置绘制文本进行测试
-        context.drawText("Test 1", 50, 50, textPaint);
-        
-        context.drawText("Test 2", 100, 90, textPaint);
-
-        context.drawText("Test 3", 100, 180, textPaint);
-        
-        context.drawText("你好", 200, 200, textPaint);
-    }
-};
 
 class TestScreen : public Activity {
 public:
     void onCreate() override {
-        auto* customView = new CustomView();
-        customView->setLayoutParams({800, 600});
-        setContentView(customView);
+        LOGI("TestScreen::onCreate");
+        
+        // 创建TextView
+        auto* textView = new TextView("Hello, World!");
+        textView->setLayoutParams({LayoutParams::WRAP_CONTENT, LayoutParams::WRAP_CONTENT});
+
+        textView->setTextSize(24.0f);
+        textView->setTextColor(Color(0, 0, 255));
+        textView->setTextAlignment(TextAlignment::Center);
+        
+        // 创建Button
+        auto* button = new Button("Click Me!");
+        button->setLayoutParams({LayoutParams::WRAP_CONTENT, LayoutParams::WRAP_CONTENT});
+        button->setTextSize(20.0f);
+        button->setOnClickListener([textView]() {
+            textView->setText("Button Clicked!");
+        });
+        
+        // 创建一个容器来持有这些控件
+        auto* container = new ViewGroup();
+        container->setBounds({0, 0, 800, 600});  // 设置容器尺寸为窗口大小
+        container->addView(textView);
+        container->addView(button);
+        
+        setContentView(container);
     }
 };
 
@@ -49,7 +44,7 @@ int main() {
     auto& app = Application::getInstance();
     app.onCreate();
 
-     // 初始化字体管理器
+    // 初始化字体管理器
     auto& fontManager = FontManager::getInstance();
     if (!fontManager.initialize()) {
         LOGE("Failed to initialize FontManager");
@@ -57,7 +52,7 @@ int main() {
     }
     
     // 加载字体文件
-    if (!fontManager.loadFont("C:/Windows/Fonts/msyh.ttc", 32)) {  // Windows 下的微软雅黑字体
+    if (!fontManager.loadFont("C:/Windows/Fonts/msyh.ttc", 32)) {
         LOGE("Failed to load font");
         return -1;
     }

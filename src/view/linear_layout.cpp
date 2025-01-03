@@ -126,40 +126,26 @@ void LinearLayout::onLayout(bool changed, int l, int t, int r, int b) {
 
 void LinearLayout::layoutVertical(bool changed, int l, int t, int r, int b) {
     int childTop = paddingTop;
-    int contentWidth = r - l - paddingLeft - paddingRight;
     
     for (auto* child : children) {
-        if (!child->isVisible()) continue;
-        
-        auto& params = child->getLayoutParams();
-        
-        // 计算子视图左边距
-        int childLeft = paddingLeft + params.marginLeft;
-        if (params.width == LayoutParams::MATCH_PARENT) {
-            // 如果是MATCH_PARENT，占满宽度
-            child->layout(
-                childLeft,
-                childTop + params.marginTop,
-                r - l - paddingRight - params.marginRight,
-                childTop + params.marginTop + child->getMeasuredHeight()
-            );
-        } else {
-            // 否则根据gravity调整水平位置
-            if (gravity & Gravity::Center) {
-                childLeft = paddingLeft + (contentWidth - child->getMeasuredWidth()) / 2;
-            } else if (gravity & Gravity::Right) {
-                childLeft = r - l - paddingRight - child->getMeasuredWidth();
-            }
-            
-            child->layout(
-                childLeft,
-                childTop + params.marginTop,
-                childLeft + child->getMeasuredWidth(),
-                childTop + params.marginTop + child->getMeasuredHeight()
-            );
+        if (!child->isVisible()) {
+            continue;
         }
         
-        childTop += child->getMeasuredHeight() + params.marginTop + params.marginBottom;
+        auto& params = child->getLayoutParams();
+        int childWidth = r - l - paddingLeft - paddingRight;
+        int childHeight = child->getMeasuredHeight();
+        
+        // 使用layout方法设置子视图边界
+        child->layout(
+            paddingLeft,
+            childTop,
+            paddingLeft + childWidth,
+            childTop + childHeight
+        );
+        
+        // 更新下一个子视图的顶部位置
+        childTop += childHeight + params.marginTop + params.marginBottom;
     }
 }
 

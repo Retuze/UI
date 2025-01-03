@@ -1,6 +1,7 @@
 #pragma once
 #include "view/view.h"
 #include "view/linear_layout.h"
+#include "view/view_root_impl.h"
 #include <memory>
 
 class Activity {
@@ -28,7 +29,7 @@ public:
     // 内容视图管理
     void setContentView(View* view);
     void setContentView(View* view, const LayoutParams& params);
-    View* getContentView() const { return contentView; }
+    View* getContentView() const { return rootLayout.get(); }
     LinearLayout* getRootLayout() const { return rootLayout.get(); }
     
     // 状态查询
@@ -44,8 +45,11 @@ public:
     void dispatchStop();
     void dispatchDestroy();
     
+    void performTraversal() { viewRoot.performTraversal(); }
+    
 protected:
     ActivityState state = ActivityState::Created;
     View* contentView = nullptr;
     std::unique_ptr<LinearLayout> rootLayout;
+    ViewRootImpl viewRoot;
 }; 

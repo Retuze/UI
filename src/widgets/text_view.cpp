@@ -1,5 +1,8 @@
 #include "widgets/text_view.h"
 #include "view/measure_spec.h"
+#include "core/logger.h"
+
+LOG_TAG("TextView");
 
 TextView::TextView() : TextView("") {}
 
@@ -46,6 +49,7 @@ void TextView::onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
 }
 
 void TextView::onDraw(RenderContext& context) {
+
     // 绘制背景
     Paint bgPaint;
     bgPaint.setColor(Color::White());
@@ -55,21 +59,9 @@ void TextView::onDraw(RenderContext& context) {
     float textWidth = textPaint.measureText(text);
     float textHeight = textPaint.getTextHeight();
     
-    float x = bounds.x + padding;
-    float y = bounds.y + (bounds.height + textHeight) / 2;
-    
-    // 根据对齐方式调整x坐标
-    switch (textAlignment) {
-        case TextAlignment::Center:
-            x = bounds.x + (bounds.width - textWidth) / 2;
-            break;
-        case TextAlignment::Right:
-            x = bounds.x + bounds.width - textWidth - padding;
-            break;
-        default:
-            break;
-    }
-    
-    // 绘制文本
-    context.drawText(text, x, y, textPaint);
+    // 修改基线位置计算
+    float baseline = bounds.y + (bounds.height + textHeight) / 2;
+    float x = bounds.x + (bounds.width - textWidth) / 2;
+         
+    context.drawText(text, x, baseline, textPaint);
 } 

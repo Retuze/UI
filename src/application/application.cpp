@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <thread>
 #include <chrono>
+#include "view/view_root_impl.h"
 
 Application& Application::getInstance() {
     static Application instance;
@@ -118,21 +119,14 @@ void Application::dispatchEvent(const Event& event) {
 }
 
 void Application::render() {
-    // 检查渲染上下文是否有效
+    if (currentActivity) {
+        currentActivity->performTraversal();
+    }
+    
     if (!renderContext) {
         return;
     }
     
-    // 清除背景
-    renderContext->clear(Color(255, 255, 255)); // 白色背景
-    
-    // 如果当前Activity存在，绘制其内容视图
-    if (currentActivity) {
-        if (View* contentView = currentActivity->getContentView()) {
-            contentView->draw(*renderContext);
-        }
-    }
-    
-    // 呈现到屏幕
+    renderContext->clear(Color(255, 255, 255));
     renderContext->present();
-} 
+}
