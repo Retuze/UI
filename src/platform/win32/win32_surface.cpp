@@ -139,7 +139,7 @@ LRESULT CALLBACK Win32Surface::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
         CREATESTRUCT* cs = reinterpret_cast<CREATESTRUCT*>(lParam);
         surface = static_cast<Win32Surface*>(cs->lpCreateParams);
         SetWindowLongPtr(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(surface));
-        return 0;
+        return DefWindowProc(hwnd, msg, wParam, lParam);
     } else {
         surface = reinterpret_cast<Win32Surface*>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
     }
@@ -184,10 +184,13 @@ LRESULT CALLBACK Win32Surface::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
                 event.button = 1;
                 hasEvent = true;
                 break;
+                
+            default:
+                return DefWindowProc(hwnd, msg, wParam, lParam);
         }
         
+        
         if (hasEvent) {
-            // 将事件加入队列,而不是直接调用UI线程
             surface->queueEvent(event);
             return 0;
         }
@@ -212,9 +215,8 @@ void Win32Surface::resizeBuffers(int newWidth, int newHeight) {
 }
 
 bool Win32Surface::pollEvent(Event& event) {
-    // 先检查是否有 Windows 消息
     MSG msg;
-    while (PeekMessage(&msg, hwnd, 0, 0, PM_REMOVE)) {
+    while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
         if (msg.message == WM_QUIT) {
             event.type = EventType::Quit;
             return true;
@@ -223,7 +225,6 @@ bool Win32Surface::pollEvent(Event& event) {
         DispatchMessage(&msg);
     }
     
-    // 检查事件队列
     std::lock_guard<std::mutex> lock(eventMutex);
     if (!eventQueue.empty()) {
         event = eventQueue.front();
@@ -232,4 +233,11 @@ bool Win32Surface::pollEvent(Event& event) {
     }
     
     return false;
+}
+
+bool Win32Surface::close() {
+    if (hwnd) {
+        SendMessage(hwnd, WM_CLOSE, 0, 0);
+    }
+    return true;
 } 

@@ -4,6 +4,9 @@ project(SimpleGUI VERSION 0.1.0 LANGUAGES CXX)
 # 设置 CMake 策略来解决警告
 cmake_policy(SET CMP0077 NEW)
 
+# 启用 compile_commands.json 生成
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 # 设置 C++ 标准
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

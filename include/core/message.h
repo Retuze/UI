@@ -32,6 +32,8 @@ public:
 
     static std::unique_ptr<Message> obtain();
     static void recycle(std::unique_ptr<Message> msg);
+    static void clearPool();
+    // 在 Message 类中添加
 };
 
 // 消息队列定义

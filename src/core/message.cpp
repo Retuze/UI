@@ -29,6 +29,11 @@ void Message::recycle(std::unique_ptr<Message> msg) {
     }
 }
 
+void Message::clearPool() {
+    std::lock_guard<std::mutex> lock(poolMutex);
+    messagePool.clear();
+}
+
 // MessageQueue 实现
 void MessageQueue::post(std::function<void()> message) {
     auto msg = Message::obtain();
@@ -131,6 +136,7 @@ void MessageQueue::removeMessagesForHandler(Handler* handler) {
 void MessageQueue::quit() {
     std::lock_guard<std::mutex> lock(mutex);
     quitting = true;
+    removeAllMessages();  // 立即清理所有消息
     messageAvailable.notify_all();
 }
 

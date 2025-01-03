@@ -14,6 +14,7 @@ public:
     void unlock() override;
     void present() override;
     bool pollEvent(Event& event) override;
+    bool close() override;
     
     int getWidth() const override { return width; }
     int getHeight() const override { return height; }

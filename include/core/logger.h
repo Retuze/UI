@@ -94,6 +94,16 @@ public:
     va_end(args);
   }
 
+  void shutdown() {
+    if (initialized) {
+      info("Logger", "Logger shutting down");
+      fclose(stdout);
+      fclose(stderr);
+      FreeConsole();
+      initialized = false;
+    }
+  }
+
 private:
   void logImplFormat(LogLevel level, const char* tag, const char* fmt, va_list args)
   {

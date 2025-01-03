@@ -19,5 +19,12 @@ void Looper::loop() {
     }
 }
 
+void Looper::quit() {
+    auto looper = getForThread();
+    if (looper && looper->queue) {
+        looper->queue->quit();
+    }
+}
+
 Looper::Looper() : queue(std::make_unique<MessageQueue>()) {
 } 

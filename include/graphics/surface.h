@@ -13,6 +13,7 @@ public:
     virtual void* lock(int* stride) = 0;
     virtual void unlock() = 0;
     virtual void present() = 0;
+    virtual bool close() = 0;
     
     // 属性访问
     virtual int getWidth() const = 0;

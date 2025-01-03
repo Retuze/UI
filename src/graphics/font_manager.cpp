@@ -45,14 +45,26 @@ bool FontManager::loadFont(const std::string& fontPath, int size) {
 
 void FontManager::renderText(Surface* surface, const std::string& text, 
                            float x, float y, Color color, const Rect& clipRect) {
-    if (!face || !surface) return;
+    LOGI("FontManager::renderText - Start rendering '%s'", text.c_str());
+    
+    if (!face) {
+        LOGE("FontManager::renderText - No font face loaded!");
+        return;
+    }
+    if (!surface) {
+        LOGE("FontManager::renderText - No surface provided!");
+        return;
+    }
     
     int pen_x = static_cast<int>(x * 64);  // 26.6 固定小数点格式
     int pen_y = static_cast<int>(y * 64);
     
     int stride;
     auto* pixels = static_cast<uint32_t*>(surface->lock(&stride));
-    if (!pixels) return;
+    if (!pixels) {
+        LOGE("FontManager::renderText - Failed to lock surface!");
+        return;
+    }
     
     FT_Int32 loadFlags = FT_LOAD_RENDER | FT_LOAD_TARGET_NORMAL;
     
@@ -62,11 +74,17 @@ void FontManager::renderText(Surface* surface, const std::string& text,
         // UTF-8解码
         uint32_t charCode;
         int charLen = decodeUTF8(p, &charCode);
-        if (charLen == 0) break;
+        if (charLen == 0) {
+            LOGE("FontManager::renderText - Failed to decode UTF-8 character!");
+            break;
+        }
+        LOGI("FontManager::renderText - Processing character code: %u", charCode);
+        
         p += charLen;
         
         // 加载字形
         if (FT_Load_Char(face, charCode, loadFlags)) {
+            LOGE("FontManager::renderText - Failed to load glyph for character code: %u", charCode);
             continue;
         }
         
@@ -76,6 +94,9 @@ void FontManager::renderText(Surface* surface, const std::string& text,
         // 计算字形位置
         int x0 = pen_x + slot->bitmap_left * 64;
         int y0 = pen_y - slot->bitmap_top * 64;
+        
+        LOGI("FontManager::renderText - Glyph position: (%d,%d), size: %dx%d", 
+             x0 >> 6, y0 >> 6, bitmap.width, bitmap.rows);
         
         // 渲染字形
         renderGlyph(pixels, stride, bitmap, x0 >> 6, y0 >> 6, color, clipRect);

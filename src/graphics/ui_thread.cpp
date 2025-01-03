@@ -53,9 +53,23 @@ void UIThread::threadLoop() {
 
 void UIThread::quit() {
     if (running) {
+        // 1. 先标记退出
         running = false;
+        
+        // 2. 发送退出消息到UI线程
+        if (uiHandler) {
+            uiHandler->post([this](){
+                // 在UI线程中退出Looper
+                Looper::quit();
+            });
+        }
+        
+        // 3. 等待线程结束
         if (thread.joinable()) {
             thread.join();
         }
+        
+        // 4. 清理资源
+        uiHandler.reset();
     }
-} 
+}

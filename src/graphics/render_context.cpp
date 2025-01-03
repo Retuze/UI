@@ -109,7 +109,6 @@ void RenderContext::drawRect(const Rect& rect, const Paint& paint)
   auto* pixels = static_cast<uint32_t*>(surface->lock(&stride));
   if (!pixels)
     return;
-  LOGI("drawRect PixelFormat: %d", surface->getPixelFormat());
   // 获取每个像素的字节数
   int bytesPerPixel;
   switch (surface->getPixelFormat()) {
@@ -176,30 +175,34 @@ void RenderContext::drawRect(const Rect& rect, const Paint& paint)
 void RenderContext::drawText(const std::string& text, float x, float y,
                              const Paint& paint)
 {
-  if (!surface)
-    return;
+    if (!surface) {
+        LOGE("RenderContext::drawText - No surface available!");
+        return;
+    }
 
-  // 获取FontManager实例
-  auto& fontManager = FontManager::getInstance();
+    // 获取FontManager实例
+    auto& fontManager = FontManager::getInstance();
+    
+    // 应用裁剪
+    Rect clipRect;
+    if (!clipStack.empty()) {
+        clipRect = clipStack.back();
+    } else {
+        clipRect = Rect(0, 0, surface->getWidth(), surface->getHeight());
+    }
 
-  // 应用裁剪
-  Rect clipRect;
-  if (!clipStack.empty()) {
-    clipRect = clipStack.back();
-  } else {
-    clipRect = Rect(0, 0, surface->getWidth(), surface->getHeight());
-  }
+    // 锁定表面
+    int stride;
+    auto* pixels = static_cast<uint32_t*>(surface->lock(&stride));
+    if (!pixels) {
+        LOGE("RenderContext::drawText - Failed to lock surface!");
+        return;
+    }
 
-  // 锁定表面
-  int stride;
-  auto* pixels = static_cast<uint32_t*>(surface->lock(&stride));
-  if (!pixels)
-    return;
+    // 渲染文本
+    fontManager.renderText(surface.get(), text, x, y, paint.getColor(), clipRect);
 
-  // 渲染文本
-  fontManager.renderText(surface.get(), text, x, y, paint.getColor(), clipRect);
-
-  surface->unlock();
+    surface->unlock();
 }
 
 void RenderContext::save()
