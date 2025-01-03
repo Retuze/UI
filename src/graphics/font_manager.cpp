@@ -26,8 +26,6 @@ bool FontManager::loadFont(const std::string& fontPath, int size) {
         FT_Done_Face(face);
     }
     
-    LOGI("Loading font: %s with size: %d", fontPath.c_str(), size);
-    
     if (FT_New_Face(library, fontPath.c_str(), 0, &face)) {
         LOGE("Failed to load font: %s", fontPath.c_str());
         return false;
@@ -45,7 +43,6 @@ bool FontManager::loadFont(const std::string& fontPath, int size) {
 
 void FontManager::renderText(Surface* surface, const std::string& text, 
                            float x, float y, Color color, const Rect& clipRect) {
-    LOGI("FontManager::renderText - Start rendering '%s'", text.c_str());
     
     if (!face) {
         LOGE("FontManager::renderText - No font face loaded!");
@@ -78,7 +75,6 @@ void FontManager::renderText(Surface* surface, const std::string& text,
             LOGE("FontManager::renderText - Failed to decode UTF-8 character!");
             break;
         }
-        LOGI("FontManager::renderText - Processing character code: %u", charCode);
         
         p += charLen;
         
@@ -94,9 +90,6 @@ void FontManager::renderText(Surface* surface, const std::string& text,
         // 计算字形位置
         int x0 = pen_x + slot->bitmap_left * 64;
         int y0 = pen_y - slot->bitmap_top * 64;
-        
-        LOGI("FontManager::renderText - Glyph position: (%d,%d), size: %dx%d", 
-             x0 >> 6, y0 >> 6, bitmap.width, bitmap.rows);
         
         // 渲染字形
         renderGlyph(pixels, stride, bitmap, x0 >> 6, y0 >> 6, color, clipRect);
