@@ -73,10 +73,13 @@ private:
     std::condition_variable messageAvailable;
     bool quitting = false;
 
-    static int64_t getCurrentTime() {
-        return std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::steady_clock::now().time_since_epoch()
-        ).count();
+    static int64_t getCurrentTimeNanos();
+    static constexpr int64_t millisToNanos(int64_t millis) {
+        return millis * 1000000LL;
+    }
+    
+    static constexpr int64_t nanosToMillis(int64_t nanos) {
+        return nanos / 1000000;
     }
 };
 

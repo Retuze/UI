@@ -39,7 +39,7 @@ FetchContent_MakeAvailable(freetype)
 add_definitions(-DUNICODE -D_UNICODE)
 
 # 设置最低 Windows 版本为 Vista
-add_definitions(-D_WIN32_WINNT=0x0600 -DWINVER=0x0600)
+add_definitions(-D_WIN32_WINNT=0x0A00 -DWINVER=0x0A00)
 
 # 添加子目录
 add_subdirectory(src)

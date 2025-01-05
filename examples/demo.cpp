@@ -1,4 +1,5 @@
 #include "application/application.h"
+#include "activity/activity.h"
 #include "widgets/text_view.h"
 #include "widgets/button.h"
 #include "view/linear_layout.h"
@@ -70,10 +71,8 @@ int main() {
             app.dispatchEvent(event);
         }
         
-        if (isRunning) {
-            app.render();
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        }
+        // 让出CPU时间片，但不要睡太久
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
     
     app.onTerminate();

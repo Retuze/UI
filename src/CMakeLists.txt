@@ -18,6 +18,16 @@ target_include_directories(simplegui
         ${CMAKE_SOURCE_DIR}/include
 )
 
+if(WIN32)
+    # 检查编译器类型
+    if(MSVC)
+        target_link_libraries(simplegui PRIVATE dwmapi)
+    else()
+        # MinGW 和 LLVM 需要使用 -ldwmapi
+        target_link_libraries(simplegui PRIVATE -ldwmapi)
+    endif()
+endif()
+
 # 链接依赖库
 target_link_libraries(simplegui
     PUBLIC

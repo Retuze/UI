@@ -1,4 +1,7 @@
 #include "core/handler.h"
+#include "core/logger.h"
+
+LOG_TAG("Handler");
 
 Handler::~Handler() {
     if (looper && looper->getQueue()) {
@@ -7,18 +10,17 @@ Handler::~Handler() {
 }
 
 void Handler::sendMessage(std::unique_ptr<Message> msg) {
-    msg->when = std::chrono::steady_clock::now().time_since_epoch().count();
+    msg->when = 0;
     looper->getQueue()->enqueueMessage(std::move(msg), this);
 }
 
 void Handler::sendMessageDelayed(std::unique_ptr<Message> msg, int64_t delayMillis) {
-    msg->when = std::chrono::steady_clock::now().time_since_epoch().count() + 
-               delayMillis * 1000000;
+    msg->when = delayMillis;
     looper->getQueue()->enqueueMessage(std::move(msg), this);
 }
 
 void Handler::sendMessageAtTime(std::unique_ptr<Message> msg, int64_t uptimeMillis) {
-    msg->when = uptimeMillis * 1000000;
+    msg->when = uptimeMillis;
     looper->getQueue()->enqueueMessage(std::move(msg), this);
 }
 
@@ -43,5 +45,14 @@ void Handler::post(std::function<void()> r) {
 void Handler::postDelayed(std::function<void()> r, int64_t delayMillis) {
     auto msg = Message::obtain();
     msg->callback = std::move(r);
-    sendMessageDelayed(std::move(msg), delayMillis);
+    msg->when = delayMillis;
+    looper->getQueue()->enqueueMessage(std::move(msg), this);
+}
+
+void Handler::handleMessage(Message& message) {
+    LOGI("Handler processing message, callback present: %d", 
+         (int)(message.callback != nullptr));
+    if (message.callback) {
+        message.callback();
+    }
 }

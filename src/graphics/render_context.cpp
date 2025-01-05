@@ -12,6 +12,8 @@ RenderContext::~RenderContext() = default;
 
 bool RenderContext::initialize(int width, int height)
 {
+  this->width = width;
+  this->height = height;
   surface = Surface::create(width, height);
   return surface && surface->initialize();
 }

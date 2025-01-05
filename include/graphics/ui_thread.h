@@ -20,14 +20,20 @@ public:
     
     Looper* getLooper() const { return Looper::getForThread().get(); }
     
+    void pauseRendering();
+    void resumeRendering();
+    
+    bool isRenderingPaused() const { return renderingPaused; }
+    
 private:
     UIThread() = default;
     ~UIThread() = default;
     
     void threadLoop();
     
-    std::unique_ptr<Handler> uiHandler;
+    bool renderingPaused = false;
+    std::atomic<bool> running{false};
+    std::thread::id uiThreadId;
     std::thread thread;
-    std::thread::id uiThreadId;  // 新增：保存UI线程ID
-    bool running = false;
+    std::shared_ptr<Handler> uiHandler;
 }; 

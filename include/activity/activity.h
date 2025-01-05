@@ -1,22 +1,23 @@
 #pragma once
+#include "core/context.h"
 #include "view/view.h"
-#include "view/linear_layout.h"
-#include "view/view_root_impl.h"
 #include <memory>
 
-class Activity {
+class Activity : public Context {
 public:
     enum class ActivityState {
-        Created,
-        Started,
-        Resumed,
-        Paused,
-        Stopped,
-        Destroyed
+        Created, Started, Resumed, Paused, Stopped, Destroyed
     };
-
+    
     Activity();
     virtual ~Activity() = default;
+    
+    // Context接口实现
+    WindowManager* getWindowManager() override;
+    RenderContext* getRenderContext() override;
+    Application* getApplication() override;
+    std::string getResourcePath() const override;
+    bool checkPermission(const std::string& permission) override;
     
     // 生命周期方法
     virtual void onCreate() {}
@@ -29,15 +30,13 @@ public:
     // 内容视图管理
     void setContentView(View* view);
     void setContentView(View* view, const LayoutParams& params);
-    View* getContentView() const { return rootLayout.get(); }
-    LinearLayout* getRootLayout() const { return rootLayout.get(); }
+    View* getContentView() const { return contentView; }
     
-    // 状态查询
-    ActivityState getState() const { return state; }
     bool isStarted() const;
     bool isResumed() const;
     
-    // 生命周期分发方法(由Application调用)
+protected:
+    friend class Application;
     void dispatchCreate();
     void dispatchStart();
     void dispatchResume();
@@ -45,11 +44,7 @@ public:
     void dispatchStop();
     void dispatchDestroy();
     
-    void performTraversal() { viewRoot.performTraversal(); }
-    
-protected:
+private:
     ActivityState state = ActivityState::Created;
     View* contentView = nullptr;
-    std::unique_ptr<LinearLayout> rootLayout;
-    ViewRootImpl viewRoot;
 }; 

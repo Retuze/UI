@@ -2,10 +2,15 @@
 #include "graphics/ui_thread.h"
 #include "core/logger.h"
 #include "core/choreographer.h"
+#include "graphics/font_manager.h"
 #include <algorithm>
 #include <thread>
 #include <chrono>
-#include "view/view_root_impl.h"
+#include "view/view_root.h"
+#include "activity/activity.h"
+#include "view/window_manager.h"
+
+LOG_TAG("Application");
 
 Application& Application::getInstance() {
     static Application instance;
@@ -13,44 +18,46 @@ Application& Application::getInstance() {
 }
 
 void Application::onCreate() {
-    // 初始化日志系统
+    // 1. 核心系统
     Logger::instance().initialize();
-    
-    // 初始化渲染上下文
-    renderContext = std::make_unique<RenderContext>();
-    if (!renderContext->initialize(800, 600)) {
-        throw std::runtime_error("Failed to initialize render context");
-    }
-    
-    // 初始化UI线程
     UIThread::getInstance().initialize();
+    
+    // 2. 渲染系统
+    initializeRenderSystem();
+    
+    // 3. 资源系统
+    initializeResourceSystem();
+    
+    // 4. 通知系统就绪
+    onSystemReady();
 }
 
 void Application::onTerminate() {
-    Logger::instance().info("Application", "Application terminating...");
+    LOGI("Application terminating...");
     
-    // 1. 停止UI线程
+    // 1. 先停止渲染
+    LOGI("1. Pausing rendering...");
+    UIThread::getInstance().pauseRendering();
+    
+    // 2. 禁用窗口管理器
+    LOGI("2. Disabling window manager...");
+    if (windowManager) {
+        windowManager->setEnabled(false);
+    }
+    
+    // 3. 清理 Activities
+    LOGI("3. Cleaning up activities...");
+    cleanupActivities();
+    
+    // 4. 停止 UI 线程
+    LOGI("4. Stopping UI thread...");
     UIThread::getInstance().quit();
     
-    // 2. 停止渲染循环
-    if (renderContext && renderContext->getSurface()) {
-        renderContext->getSurface()->close();
-    }
+    LOGI("5. Cleaning up resources...");
+    cleanupRenderSystem();
+    cleanupResources();
     
-    // 3. 清理Activities
-    for (auto* activity : activities) {
-        delete activity;
-    }
-    activities.clear();
-    currentActivity = nullptr;
-    
-    // 4. 清理其他资源
-    renderContext.reset();
-    Message::clearPool();
-    
-    // 5. 最后关闭日志系统
-    Logger::instance().info("Application", "Application terminated");
-    Logger::instance().shutdown();
+    LOGI("Application terminated");
 }
 
 void Application::startActivity(Activity* activity) {
@@ -119,14 +126,76 @@ void Application::dispatchEvent(const Event& event) {
 }
 
 void Application::render() {
+    if (windowManager) {
+        windowManager->performTraversals();
+    }
+}
+
+std::string Application::getResourcePath() const {
+    // 返回资源路径，这里简单返回当前目录
+    return "./resources";
+}
+
+bool Application::checkPermission(const std::string& permission) {
+    // 简单的权限检查实现
+    return true;
+}
+
+void Application::initializeRenderSystem() {
+    // 初始化渲染上下文
+    renderContext = std::make_unique<RenderContext>();
+    if (!renderContext->initialize(800, 600)) {
+        throw std::runtime_error("Failed to initialize render context");
+    }
+    
+    // 初始化窗口管理器
+    windowManager = std::make_unique<WindowManager>();
+    windowManager->setRenderContext(renderContext.get());
+}
+
+void Application::initializeResourceSystem() {
+    // 初始化字体管理器
+    auto& fontManager = FontManager::getInstance();
+    if (!fontManager.initialize()) {
+        throw std::runtime_error("Failed to initialize FontManager");
+    }
+    
+    // 加载默认字体
+    if (!fontManager.loadFont("C:/Windows/Fonts/msyh.ttc", 32)) {
+        throw std::runtime_error("Failed to load default font");
+    }
+}
+
+void Application::onSystemReady() {
+    Logger::instance().info("Application", "System initialization completed");
+}
+
+void Application::cleanupActivities() {
+    // 先暂停当前Activity
     if (currentActivity) {
-        currentActivity->performTraversal();
+        currentActivity->dispatchPause();
+        currentActivity->dispatchStop();
     }
     
-    if (!renderContext) {
-        return;
+    // 销毁所有Activity
+    for (auto* activity : activities) {
+        activity->dispatchDestroy();
+        delete activity;
     }
-    
-    renderContext->clear(Color(255, 255, 255));
-    renderContext->present();
+    activities.clear();
+    currentActivity = nullptr;
+}
+
+void Application::cleanupRenderSystem() {
+    if (renderContext && renderContext->getSurface()) {
+        renderContext->getSurface()->close();
+    }
+    windowManager.reset();
+    renderContext.reset();
+}
+
+void Application::cleanupResources() {
+    Message::clearPool();
+    Logger::instance().info("Application", "Application terminated");
+    Logger::instance().shutdown();
 }

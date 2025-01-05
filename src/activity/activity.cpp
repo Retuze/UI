@@ -1,9 +1,9 @@
 #include "activity/activity.h"
 #include "application/application.h"
+#include "view/window_manager.h"
 
 Activity::Activity() {
-    rootLayout = std::make_unique<LinearLayout>(LinearLayout::Orientation::Vertical);
-    rootLayout->setLayoutParams({LayoutParams::MATCH_PARENT, LayoutParams::MATCH_PARENT});
+    // Remove unnecessary rootLayout initialization
 }
 
 void Activity::setContentView(View* view) {
@@ -12,14 +12,15 @@ void Activity::setContentView(View* view) {
 
 void Activity::setContentView(View* view, const LayoutParams& params) {
     if (contentView) {
-        rootLayout->removeView(contentView);
         delete contentView;
     }
     contentView = view;
     if (view) {
         view->setLayoutParams(params);
-        rootLayout->addView(view);
-        viewRoot.setView(rootLayout.get());
+        // Get the window manager and add the view
+        if (auto* wm = Application::getInstance().getWindowManager()) {
+            wm->addView(view, params);
+        }
     }
 }
 
@@ -33,9 +34,6 @@ bool Activity::isResumed() const {
 
 void Activity::dispatchCreate() {
     state = ActivityState::Created;
-    if (auto* context = Application::getInstance().getRenderContext()) {
-        viewRoot.setRenderContext(context);
-    }
     onCreate();
 }
 
@@ -62,6 +60,28 @@ void Activity::dispatchStop() {
 void Activity::dispatchDestroy() {
     state = ActivityState::Destroyed;
     onDestroy();
-    delete contentView;
-    contentView = nullptr;
+    if (contentView) {
+        delete contentView;
+        contentView = nullptr;
+    }
+}
+
+WindowManager* Activity::getWindowManager() {
+    return Application::getInstance().getWindowManager();
+}
+
+RenderContext* Activity::getRenderContext() {
+    return Application::getInstance().getRenderContext();
+}
+
+Application* Activity::getApplication() {
+    return &Application::getInstance();
+}
+
+std::string Activity::getResourcePath() const {
+    return Application::getInstance().getResourcePath();
+}
+
+bool Activity::checkPermission(const std::string& permission) {
+    return Application::getInstance().checkPermission(permission);
 } 

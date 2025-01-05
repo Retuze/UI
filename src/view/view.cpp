@@ -1,6 +1,7 @@
 #include "view/view.h"
 #include "core/logger.h"
 #include "view/view_group.h"
+#include "application/application.h"
 
 
 LOG_TAG("View");
@@ -84,17 +85,21 @@ void View::setVisible(bool visible)
 
 void View::invalidate()
 {
-  // 向上传递重绘请求
-  if (parent) {
-    parent->invalidate();
+  // 通知 ViewRoot 需要重绘
+  if (auto* wm = Application::getInstance().getWindowManager()) {
+    if (auto* vr = wm->getViewRoot()) {
+      vr->invalidate();
+    }
   }
 }
 
 void View::requestLayout()
 {
   needsLayout = true;
-  if (parent) {
-    parent->requestLayout();
+  if (auto* wm = Application::getInstance().getWindowManager()) {
+    if (auto* vr = wm->getViewRoot()) {
+      vr->requestLayout();
+    }
   }
 }
 

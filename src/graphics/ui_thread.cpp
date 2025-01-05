@@ -2,6 +2,10 @@
 #include "core/looper.h"
 #include "core/choreographer.h"
 #include "application/application.h"
+#include "core/logger.h"
+#include <chrono>
+
+LOG_TAG("UIThread");
 
 UIThread& UIThread::getInstance() {
     static UIThread instance;
@@ -9,24 +13,49 @@ UIThread& UIThread::getInstance() {
 }
 
 void UIThread::initialize() {
-    Looper::prepare();
-    
-    // 创建UI Handler
-    uiHandler = std::make_unique<Handler>(Looper::getForThread());
-    
-    // 保存UI线程ID
-    uiThreadId = std::this_thread::get_id();
-    
-    // 初始化 Choreographer
-    Choreographer::getInstance().setFrameCallback([this]() {
-        if (Application::getInstance().getCurrentActivity()) {
-            Application::getInstance().render();
-        }
-    });
-    
-    // 启动UI线程
+    renderingPaused = false;
     running = true;
-    thread = std::thread(&UIThread::threadLoop, this);
+    // 使用条件变量确保UI线程完全初始化
+    std::mutex initMutex;
+    std::condition_variable initCv;
+    bool initialized = false;
+
+    thread = std::thread([this, &initMutex, &initCv, &initialized]() {
+        // 1. 在UI线程中初始化Looper
+        Looper::prepare();
+        
+        // 2. 创建UI线程的Handler
+        uiHandler = std::make_shared<Handler>(Looper::getForThread());
+        uiThreadId = std::this_thread::get_id();
+        
+        // 3. 初始化Choreographer
+        auto& choreographer = Choreographer::getInstance();
+        choreographer.setFrameRate(60);  // 设置60fps
+        choreographer.setFrameCallback([this](int64_t frameTimeNanos) {
+            if (!renderingPaused) {
+                if (Application::getInstance().getCurrentActivity()) {
+                    Application::getInstance().render();
+                }
+            }
+        });
+        choreographer.start();  // 启动VSync模拟
+        
+        // 4. 通知初始化完成
+        {
+            std::lock_guard<std::mutex> lock(initMutex);
+            initialized = true;
+            initCv.notify_one();
+        }
+        
+        LOGI("UI Thread initialized, first frame posted");
+        
+        // 6. 开始消息循环
+        threadLoop();
+    });
+
+    // 等待UI线程初始化完成
+    std::unique_lock<std::mutex> lock(initMutex);
+    initCv.wait(lock, [&initialized] { return initialized; });
 }
 
 bool UIThread::isUiThread() const {
@@ -46,6 +75,7 @@ void UIThread::runOnUiThreadDelayed(std::function<void()> task, int64_t delayMil
 }
 
 void UIThread::threadLoop() {
+    LOGI("UI Thread loop started");
     while (running) {
         Looper::loop();
     }
@@ -53,23 +83,64 @@ void UIThread::threadLoop() {
 
 void UIThread::quit() {
     if (running) {
-        // 1. 先标记退出
-        running = false;
+        LOGI("UIThread quitting...");
         
-        // 2. 发送退出消息到UI线程
-        if (uiHandler) {
-            uiHandler->post([this](){
-                // 在UI线程中退出Looper
-                Looper::quit();
-            });
-        }
+        // 1. 先停止渲染
+        renderingPaused = true;
         
-        // 3. 等待线程结束
+        // 2. 在UI线程中停止 Choreographer
+        runOnUiThread([this]() {
+            LOGI("Stopping Choreographer...");
+            auto& choreographer = Choreographer::getInstance();
+            choreographer.stop();
+            choreographer.setFrameCallback(nullptr);
+            
+            // 3. 清理消息队列
+            LOGI("Cleaning message queue...");
+            if (uiHandler) {
+                auto& queue = *uiHandler->looper->getQueue();
+                queue.removeMessagesForHandler(uiHandler.get());
+                queue.quit();
+            }
+            
+            // 4. 停止消息循环
+            LOGI("Stopping message loop...");
+            running = false;
+        });
+        
         if (thread.joinable()) {
+            LOGI("Waiting for UI thread to join...");
             thread.join();
         }
         
-        // 4. 清理资源
         uiHandler.reset();
+        LOGI("UI Thread quit successfully");
+    }
+}
+
+void UIThread::pauseRendering() {
+    if (uiHandler) {
+        // 先设置标志位
+        renderingPaused = true;
+        
+        // 在UI线程清理消息队列
+        runOnUiThread([this]() {
+            if (uiHandler) {
+                auto& queue = *uiHandler->looper->getQueue();
+                queue.removeMessagesForHandler(uiHandler.get());
+            }
+        });
+        
+        // 等待当前帧渲染完成
+        std::this_thread::sleep_for(std::chrono::milliseconds(16));
+    }
+}
+
+void UIThread::resumeRendering() {
+    if (uiHandler) {
+        renderingPaused = false;
+        auto& choreographer = Choreographer::getInstance();
+        choreographer.start();  // 重新启动VSync模拟
+        LOGI("Rendering resumed");
     }
 }

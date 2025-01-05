@@ -34,7 +34,9 @@ public:
     // 发送延迟Runnable
     void postDelayed(std::function<void()> r, int64_t delayMillis);
     
-    virtual void handleMessage(const Message& msg) {}
+    virtual void handleMessage(Message& message);
+    
+    friend class UIThread;
     
 protected:
     std::shared_ptr<Looper> looper;
