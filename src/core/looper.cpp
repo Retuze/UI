@@ -1,14 +1,14 @@
 #include "core/looper.h"
 
-thread_local std::shared_ptr<Looper> Looper::threadLooper = nullptr;
+thread_local Looper* Looper::threadLooper = nullptr;
 
-std::shared_ptr<Looper> Looper::getForThread() {
+Looper* Looper::getForThread() {
     return threadLooper;
 }
 
 void Looper::prepare() {
     if (!threadLooper) {
-        threadLooper = std::shared_ptr<Looper>(new Looper());
+        threadLooper = new Looper();
     }
 }
 
@@ -26,5 +26,10 @@ void Looper::quit() {
     }
 }
 
-Looper::Looper() : queue(std::make_unique<MessageQueue>()) {
+Looper::Looper() {
+    queue = new MessageQueue();
+}
+
+Looper::~Looper() {
+    delete queue;
 } 

@@ -9,19 +9,19 @@ Handler::~Handler() {
     }
 }
 
-void Handler::sendMessage(std::unique_ptr<Message> msg) {
+void Handler::sendMessage(Message* msg) {
     msg->when = 0;
-    looper->getQueue()->enqueueMessage(std::move(msg), this);
+    looper->getQueue()->enqueueMessage(msg, this);
 }
 
-void Handler::sendMessageDelayed(std::unique_ptr<Message> msg, int64_t delayMillis) {
+void Handler::sendMessageDelayed(Message* msg, int64_t delayMillis) {
     msg->when = delayMillis;
-    looper->getQueue()->enqueueMessage(std::move(msg), this);
+    looper->getQueue()->enqueueMessage(msg, this);
 }
 
-void Handler::sendMessageAtTime(std::unique_ptr<Message> msg, int64_t uptimeMillis) {
+void Handler::sendMessageAtTime(Message* msg, int64_t uptimeMillis) {
     msg->when = uptimeMillis;
-    looper->getQueue()->enqueueMessage(std::move(msg), this);
+    looper->getQueue()->enqueueMessage(msg, this);
 }
 
 void Handler::sendEmptyMessage(int what) {
@@ -37,9 +37,9 @@ void Handler::sendEmptyMessageDelayed(int what, int64_t delayMillis) {
 }
 
 void Handler::post(std::function<void()> r) {
-    auto msg = Message::obtain();
+    Message* msg = Message::obtain();
     msg->callback = std::move(r);
-    sendMessage(std::move(msg));
+    sendMessage(msg);
 }
 
 void Handler::postDelayed(std::function<void()> r, int64_t delayMillis) {

@@ -26,13 +26,19 @@ void WindowManager::updateViewLayout(View* view, const LayoutParams& params) {
 }
 
 void WindowManager::removeView(View* view) {
-    if (!rootView || !view) {
+    if (!rootView || !view || !isEnabled) {
         return;
     }
-    static_cast<DecorView*>(rootView)->setContentView(nullptr);
     
-    // 只在启用状态下请求布局
-    if (isEnabled) {
+    // 1. 确保视图树不再引用此视图
+    if (auto* decorView = static_cast<DecorView*>(rootView)) {
+        if (decorView->getContentView() == view) {
+            decorView->setContentView(nullptr);
+        }
+    }
+    
+    // 2. 请求一次布局以确保视图树更新
+    if (viewRoot) {
         viewRoot->requestLayout();
     }
 }

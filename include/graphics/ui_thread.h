@@ -18,7 +18,7 @@ public:
     // 判断当前是否为UI线程
     bool isUiThread() const;
     
-    Looper* getLooper() const { return Looper::getForThread().get(); }
+    Looper* getLooper() const { return threadLooper; }
     
     void pauseRendering();
     void resumeRendering();
@@ -26,8 +26,8 @@ public:
     bool isRenderingPaused() const { return renderingPaused; }
     
 private:
-    UIThread() = default;
-    ~UIThread() = default;
+    UIThread();
+    ~UIThread();
     
     void threadLoop();
     
@@ -35,5 +35,6 @@ private:
     std::atomic<bool> running{false};
     std::thread::id uiThreadId;
     std::thread thread;
-    std::shared_ptr<Handler> uiHandler;
+    Looper* threadLooper = nullptr;
+    Handler* uiHandler = nullptr;
 }; 

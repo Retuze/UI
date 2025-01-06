@@ -1,6 +1,5 @@
 #pragma once
 #include <functional>
-#include <memory>
 #include <chrono>
 #include <queue>
 #include <vector>
@@ -30,10 +29,12 @@ public:
         target = nullptr;
     }
 
-    static std::unique_ptr<Message> obtain();
-    static void recycle(std::unique_ptr<Message> msg);
+    static Message* obtain();
+    static void recycle(Message* msg);
     static void clearPool();
     // 在 Message 类中添加
+
+    ~Message() = default;
 };
 
 // 消息队列定义
@@ -45,7 +46,7 @@ public:
     void postDelayed(std::function<void()> message, int64_t delayMillis);
     void processNextMessage();
     
-    void enqueueMessage(std::unique_ptr<Message> msg, Handler* handler);
+    void enqueueMessage(Message* msg, Handler* handler);
     void addIdleHandler(IdleHandler handler);
     void removeIdleHandler(const IdleHandler& handler);
     int postSyncBarrier();
@@ -56,15 +57,14 @@ public:
 
 private:
     struct MessageComparer {
-        bool operator()(const std::unique_ptr<Message>& a, 
-                       const std::unique_ptr<Message>& b) {
+        bool operator()(Message* a, Message* b) {
             return a->when > b->when;
         }
     };
     
     std::priority_queue<
-        std::unique_ptr<Message>,
-        std::vector<std::unique_ptr<Message>>,
+        Message*,
+        std::vector<Message*>,
         MessageComparer
     > messageQueue;
     
@@ -74,23 +74,16 @@ private:
     bool quitting = false;
 
     static int64_t getCurrentTimeNanos();
-    static constexpr int64_t millisToNanos(int64_t millis) {
-        return millis * 1000000LL;
-    }
-    
-    static constexpr int64_t nanosToMillis(int64_t nanos) {
-        return nanos / 1000000;
-    }
 };
 
 // 消息池定义
 class MessagePool {
 public:
-    static std::unique_ptr<Message> obtain();
-    static void recycle(std::unique_ptr<Message> msg);
+    static Message* obtain();
+    static void recycle(Message* msg);
     
 private:
     static constexpr size_t MAX_POOL_SIZE = 50;
-    static std::vector<std::unique_ptr<Message>> pool;
+    static std::vector<Message*> pool;
     static std::mutex mutex;
 };

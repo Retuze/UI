@@ -33,31 +33,28 @@ void Application::onCreate() {
 }
 
 void Application::onTerminate() {
-    LOGI("Application terminating...");
-    
-    // 1. 先暂停渲染
-    LOGI("1. Pausing rendering...");
-    UIThread::getInstance().pauseRendering();
-    
-    // 2. 禁用窗口管理器
-    LOGI("2. Disabling window manager...");
+    // 1. 禁用窗口管理器，停止接收新的渲染请求
     if (windowManager) {
         windowManager->setEnabled(false);
     }
     
-    // 3. 清理 Activities
-    LOGI("3. Cleaning up activities...");
+    // 2. 暂停UI线程渲染
+    UIThread::getInstance().pauseRendering();
+    
+    // 3. 等待最后一帧渲染完成
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    
+    // 4. 清理 Activities (此时不会触发新的渲染)
     cleanupActivities();
     
-    // 4. 停止 UI 线程
-    LOGI("4. Stopping UI thread...");
+    // 5. 停止 UI 线程
     UIThread::getInstance().quit();
     
-    LOGI("5. Cleaning up resources...");
-    cleanupRenderSystem();
-    cleanupResources();
+    windowManager.reset();
+    renderContext.reset();
     
-    LOGI("Application terminated");
+    // 8. 清理其他资源
+    cleanupResources();
 }
 
 void Application::startActivity(Activity* activity) {

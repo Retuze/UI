@@ -29,7 +29,13 @@ void Choreographer::start() {
 
 void Choreographer::stop() {
     if (running) {
+        // 1. 先清除回调，确保不会再触发新的UI操作
+        frameCallback = nullptr;
+        
+        // 2. 再停止线程
         running = false;
+        
+        // 3. 等待线程结束
         if (vsyncThread && vsyncThread->joinable()) {
             vsyncThread->join();
         }

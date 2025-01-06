@@ -1,26 +1,25 @@
 #pragma once
 #include "core/looper.h"
 #include "core/message.h"
-#include <memory>
 
 class Handler {
 public:
-    explicit Handler(std::shared_ptr<Looper> looper) {
+    explicit Handler(Looper* looper) {
         if (!looper) {
             throw std::invalid_argument("Null looper provided to Handler constructor");
         }
-        this->looper = std::move(looper);
+        this->looper = looper;
     }
     virtual ~Handler();
     
     // 发送普通消息
-    void sendMessage(std::unique_ptr<Message> msg);
+    void sendMessage(Message* msg);
     
     // 发送延迟消息
-    void sendMessageDelayed(std::unique_ptr<Message> msg, int64_t delayMillis);
+    void sendMessageDelayed(Message* msg, int64_t delayMillis);
     
     // 发送定时消息
-    void sendMessageAtTime(std::unique_ptr<Message> msg, int64_t uptimeMillis);
+    void sendMessageAtTime(Message* msg, int64_t uptimeMillis);
     
     // 发送空消息
     void sendEmptyMessage(int what);
@@ -39,5 +38,5 @@ public:
     friend class UIThread;
     
 protected:
-    std::shared_ptr<Looper> looper;
+    Looper* looper;
 }; 

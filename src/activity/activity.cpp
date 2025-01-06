@@ -59,7 +59,20 @@ void Activity::dispatchStop() {
 
 void Activity::dispatchDestroy() {
     state = ActivityState::Destroyed;
+    
+    // 1. 先从窗口管理器移除视图
+    if (auto* wm = Application::getInstance().getWindowManager()) {
+        if (contentView) {
+            wm->removeView(contentView);
+            // 2. 等待视图从渲染树中完全移除
+            std::this_thread::sleep_for(std::chrono::milliseconds(16));
+        }
+    }
+    
+    // 3. 调用销毁回调
     onDestroy();
+    
+    // 4. 最后删除视图
     if (contentView) {
         delete contentView;
         contentView = nullptr;

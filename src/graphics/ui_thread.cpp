@@ -12,6 +12,13 @@ UIThread& UIThread::getInstance() {
     return instance;
 }
 
+UIThread::UIThread() : 
+    renderingPaused(false),
+    running(false),
+    threadLooper(nullptr),
+    uiHandler(nullptr) {
+}
+
 void UIThread::initialize() {
     renderingPaused = false;
     running = true;
@@ -23,12 +30,11 @@ void UIThread::initialize() {
     thread = std::thread([this, &initMutex, &initCv, &initialized]() {
         // 1. 在UI线程中初始化Looper
         Looper::prepare();
-        
-        // 2. 创建UI线程的Handler
-        uiHandler = std::make_shared<Handler>(Looper::getForThread());
+        threadLooper = Looper::getForThread();  // 保存引用
+        uiHandler = new Handler(threadLooper);
         uiThreadId = std::this_thread::get_id();
         
-        // 3. 初始化Choreographer
+        // 2. 初始化Choreographer
         auto& choreographer = Choreographer::getInstance();
         choreographer.setFrameRate(60);  // 设置60fps
         choreographer.setFrameCallback([this](int64_t frameTimeNanos) {
@@ -85,35 +91,31 @@ void UIThread::quit() {
     if (running) {
         LOGI("UIThread quitting...");
         
-        // 1. 先停止渲染
+        // 1. 先停止渲染和Choreographer
         renderingPaused = true;
+        auto& choreographer = Choreographer::getInstance();
+        choreographer.stop();
+        choreographer.setFrameCallback(nullptr);
         
-        // 2. 在UI线程中停止 Choreographer
-        runOnUiThread([this]() {
-            LOGI("Stopping Choreographer...");
-            auto& choreographer = Choreographer::getInstance();
-            choreographer.stop();
-            choreographer.setFrameCallback(nullptr);
-            
-            // 3. 清理消息队列
-            LOGI("Cleaning message queue...");
-            if (uiHandler) {
-                auto& queue = *uiHandler->looper->getQueue();
-                queue.removeMessagesForHandler(uiHandler.get());
-                queue.quit();
-            }
-            
-            // 4. 停止消息循环
-            LOGI("Stopping message loop...");
-            running = false;
-        });
+        // 2. 设置退出标志
+        running = false;
         
+        // 3. 通知消息队列退出
+        if (threadLooper) {
+            threadLooper->getQueue()->quit();
+        }
+        
+        // 4. 等待UI线程结束
         if (thread.joinable()) {
-            LOGI("Waiting for UI thread to join...");
             thread.join();
         }
         
-        uiHandler.reset();
+        // 5. 清理资源
+        delete uiHandler;
+        delete threadLooper;
+        uiHandler = nullptr;
+        threadLooper = nullptr;
+        
         LOGI("UI Thread quit successfully");
     }
 }
@@ -127,7 +129,7 @@ void UIThread::pauseRendering() {
         runOnUiThread([this]() {
             if (uiHandler) {
                 auto& queue = *uiHandler->looper->getQueue();
-                queue.removeMessagesForHandler(uiHandler.get());
+                queue.removeMessagesForHandler(uiHandler);
             }
         });
         
@@ -142,5 +144,11 @@ void UIThread::resumeRendering() {
         auto& choreographer = Choreographer::getInstance();
         choreographer.start();  // 重新启动VSync模拟
         LOGI("Rendering resumed");
+    }
+}
+
+UIThread::~UIThread() {
+    if (running) {
+        quit();
     }
 }

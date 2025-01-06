@@ -10,30 +10,36 @@ LOG_TAG("Message");
 // Message Pool 实现
 namespace
 {
-std::vector<std::unique_ptr<Message>> messagePool;
+std::vector<Message*> messagePool;
 std::mutex poolMutex;
 constexpr size_t MAX_POOL_SIZE = 50;
+
+constexpr int64_t millisToNanos(int64_t ms) {
+    return ms * 1000000;
+}
 } // namespace
 
-std::unique_ptr<Message> Message::obtain()
+Message* Message::obtain()
 {
   std::lock_guard<std::mutex> lock(poolMutex);
   if (messagePool.empty()) {
-    return std::make_unique<Message>();
+    return new Message();
   }
-  auto msg = std::move(messagePool.back());
+  Message* msg = messagePool.back();
   messagePool.pop_back();
   return msg;
 }
 
-void Message::recycle(std::unique_ptr<Message> msg)
+void Message::recycle(Message* msg)
 {
   if (!msg)
     return;
   msg->reset();
   std::lock_guard<std::mutex> lock(poolMutex);
   if (messagePool.size() < MAX_POOL_SIZE) {
-    messagePool.push_back(std::move(msg));
+    messagePool.push_back(msg);
+  } else {
+    delete msg;
   }
 }
 
@@ -46,27 +52,24 @@ void Message::clearPool()
 // MessageQueue 实现
 void MessageQueue::post(std::function<void()> message)
 {
-  auto msg = Message::obtain();
+  Message* msg = Message::obtain();
   msg->callback = std::move(message);
-  msg->when = getCurrentTimeNanos(); // 使用纳秒时间戳
-  messageQueue.push(std::move(msg));
+  msg->when = getCurrentTimeNanos();
+  messageQueue.push(msg);
   messageAvailable.notify_one();
 }
 
 void MessageQueue::postDelayed(std::function<void()> message,
                                int64_t delayMillis)
 {
-  auto msg = Message::obtain();
+  Message* msg = Message::obtain();
   msg->callback = std::move(message);
   msg->when = getCurrentTimeNanos() + millisToNanos(delayMillis);
-  LOGI("Posting delayed message, delay: %ldms, when: %ld", delayMillis,
-       msg->when);
-  messageQueue.push(std::move(msg));
+  messageQueue.push(msg);
   messageAvailable.notify_one();
 }
 
-void MessageQueue::enqueueMessage(std::unique_ptr<Message> msg,
-                                  Handler* handler)
+void MessageQueue::enqueueMessage(Message* msg, Handler* handler)
 {
   std::lock_guard<std::mutex> lock(mutex);
   msg->target = handler;
@@ -75,7 +78,7 @@ void MessageQueue::enqueueMessage(std::unique_ptr<Message> msg,
   } else {
     msg->when = getCurrentTimeNanos() + millisToNanos(msg->when);
   }
-  messageQueue.push(std::move(msg));
+  messageQueue.push(msg);
   messageAvailable.notify_one();
 }
 
@@ -85,25 +88,20 @@ void MessageQueue::processNextMessage()
 
   while (!quitting) {
     if (!messageQueue.empty()) {
-      auto& msg = messageQueue.top();
+      Message* msg = messageQueue.top();
       auto now = getCurrentTimeNanos();
 
       if (msg->when <= now) {
-        // 取出消息并执行
-        auto message = std::move(
-            const_cast<std::unique_ptr<Message>&>(messageQueue.top()));
         messageQueue.pop();
 
         lock.unlock();
-        if (message->callback) {
-          message->callback();
-        } else if (message->target) {
-          message->target->handleMessage(*message);
+        if (msg->callback) {
+          msg->callback();
+        } else if (msg->target) {
+          msg->target->handleMessage(*msg);
         }
 
-        // 回收消息到消息池
-        Message::recycle(std::move(message));
-
+        Message::recycle(msg);
         lock.lock();
         continue;
       }
@@ -135,12 +133,10 @@ void MessageQueue::processNextMessage()
   // 如果是退出状态，确保清理所有剩余消息
   if (quitting) {
     while (!messageQueue.empty()) {
-      auto message = std::move(
-          const_cast<std::unique_ptr<Message>&>(messageQueue.top()));
+      Message* msg = messageQueue.top();
       messageQueue.pop();
       
-      // 回收消息到消息池
-      Message::recycle(std::move(message));
+      Message::recycle(msg);
     }
   }
 }
@@ -148,22 +144,21 @@ void MessageQueue::processNextMessage()
 void MessageQueue::removeMessagesForHandler(Handler* handler)
 {
   std::lock_guard<std::mutex> lock(mutex);
-  std::vector<std::unique_ptr<Message>> temp;
+  std::vector<Message*> temp;
 
   while (!messageQueue.empty()) {
-    auto msg =
-        std::move(const_cast<std::unique_ptr<Message>&>(messageQueue.top()));
+    Message* msg = messageQueue.top();
     messageQueue.pop();
 
     if (msg->target != handler) {
-      temp.push_back(std::move(msg));
+      temp.push_back(msg);
     } else {
-      Message::recycle(std::move(msg));
+      Message::recycle(msg);
     }
   }
 
-  for (auto& msg : temp) {
-    messageQueue.push(std::move(msg));
+  for (Message* msg : temp) {
+    messageQueue.push(msg);
   }
 }
 
@@ -188,10 +183,9 @@ void MessageQueue::removeAllMessages()
 {
   std::lock_guard<std::mutex> lock(mutex);
   while (!messageQueue.empty()) {
-    auto msg =
-        std::move(const_cast<std::unique_ptr<Message>&>(messageQueue.top()));
+    Message* msg = messageQueue.top();
     messageQueue.pop();
-    Message::recycle(std::move(msg));
+    Message::recycle(msg);
   }
 }
 
