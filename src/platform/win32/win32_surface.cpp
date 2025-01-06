@@ -163,10 +163,10 @@ LRESULT CALLBACK Win32Surface::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
                 return 0;
                 
             case WM_MOUSEMOVE:
-                event.type = EventType::MouseMove;
-                event.x = GET_X_LPARAM(lParam);
-                event.y = GET_Y_LPARAM(lParam);
-                hasEvent = true;
+                // event.type = EventType::MouseMove;
+                // event.x = GET_X_LPARAM(lParam);
+                // event.y = GET_Y_LPARAM(lParam);
+                // hasEvent = true;
                 break;
                 
             case WM_LBUTTONDOWN:

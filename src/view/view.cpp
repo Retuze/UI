@@ -10,14 +10,21 @@ View::View() = default;
 
 void View::measure(int widthMeasureSpec, int heightMeasureSpec)
 {
-  // 默认实现：使用建议的尺寸
-  int width = MeasureSpec::getSize(widthMeasureSpec);
-  int height = MeasureSpec::getSize(heightMeasureSpec);
-  setMeasuredDimension(width, height);
+    // 调用子类的测量方法
+    onMeasure(widthMeasureSpec, heightMeasureSpec);
+    
+    // 确保设置了测量尺寸
+    if (getMeasuredWidth() == 0 && getMeasuredHeight() == 0) {
+        setMeasuredDimension(
+            MeasureSpec::getSize(widthMeasureSpec),
+            MeasureSpec::getSize(heightMeasureSpec)
+        );
+    }
 }
 
 void View::layout(int left, int top, int right, int bottom)
 {
+  LOGI("View layout: l=%d, t=%d, r=%d, b=%d", left, top, right, bottom);
   bounds.x = left;
   bounds.y = top;
   bounds.width = right - left;

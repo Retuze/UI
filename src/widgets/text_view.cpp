@@ -36,32 +36,39 @@ void TextView::setTextAlignment(TextAlignment alignment) {
 }
 
 void TextView::onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+    // 计算文本尺寸
     float textWidth = textPaint.measureText(text);
     float textHeight = textPaint.getTextHeight();
     
-    int width = static_cast<int>(textWidth + 2 * padding);
-    int height = static_cast<int>(textHeight + 2 * padding);
+    // 文本实际占用的高度约为 1.2 倍的字体高度
+    float actualTextHeight = textHeight * 1.2f;
     
-    width = MeasureSpec::resolveSize(width, widthMeasureSpec);
-    height = MeasureSpec::resolveSize(height, heightMeasureSpec);
+    // 考虑padding
+    int desiredWidth = static_cast<int>(textWidth + paddingLeft + paddingRight);
+    int desiredHeight = static_cast<int>(actualTextHeight + paddingTop + paddingBottom);
+    
+    // 根据MeasureSpec调整最终尺寸
+    int width = MeasureSpec::resolveSize(desiredWidth, widthMeasureSpec);
+    int height = MeasureSpec::resolveSize(desiredHeight, heightMeasureSpec);
     
     setMeasuredDimension(width, height);
 }
 
 void TextView::onDraw(RenderContext& context) {
-
-    // 绘制背景
-    Paint bgPaint;
-    bgPaint.setColor(Color::White());
-    context.drawRect(bounds, bgPaint);
-    
     // 计算文本位置
     float textWidth = textPaint.measureText(text);
     float textHeight = textPaint.getTextHeight();
     
-    // 修改基线位置计算
-    float baseline = bounds.y + (bounds.height + textHeight) / 2;
-    float x = bounds.x + (bounds.width - textWidth) / 2;
-         
-    context.drawText(text, x, baseline, textPaint);
+    // 计算文本垂直居中的基线位置
+    // 文本基线应该在中心偏下textHeight/2的位置
+    float textBaseline = bounds.y + (bounds.height + textHeight) / 2.0f - textHeight * 0.1f;
+    
+    // 根据对齐方式调整x坐标
+    float x = bounds.x + paddingLeft;
+    if (textAlignment == TextAlignment::Center) {
+        x = bounds.x + (bounds.width - textWidth) / 2;
+    }
+    
+    // 绘制文本
+    context.drawText(text, x, textBaseline, textPaint);
 } 

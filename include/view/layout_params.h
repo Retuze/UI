@@ -1,7 +1,6 @@
 #pragma once
 
-class LayoutParams {
-public:
+struct LayoutParams {
     static constexpr int MATCH_PARENT = -1;
     static constexpr int WRAP_CONTENT = -2;
     
@@ -13,8 +12,18 @@ public:
     int marginBottom = 0;
     
     LayoutParams() = default;
-    LayoutParams(int width, int height) : width(width), height(height) {}
+    LayoutParams(int w, int h) : width(w), height(h) {}
     
-    bool isMatchParent(int size) const { return size == MATCH_PARENT; }
-    bool isWrapContent(int size) const { return size == WRAP_CONTENT; }
+    // Fluent interface for setting margins
+    LayoutParams& setMargins(int left, int top, int right, int bottom) {
+        marginLeft = left;
+        marginTop = top;
+        marginRight = right;
+        marginBottom = bottom;
+        return *this;
+    }
+    
+    LayoutParams& setMargin(int margin) {
+        return setMargins(margin, margin, margin, margin);
+    }
 }; 

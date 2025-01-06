@@ -43,26 +43,25 @@ void ViewRoot::performTraversals() {
 }
 
 void ViewRoot::performMeasure() {
-    LOGI("Performing measure");
-    
-    // 获取窗口尺寸作为根视图的测量规格
     int width = renderContext->getWidth();
     int height = renderContext->getHeight();
+    
+    LOGI("ViewRoot measure with window size: %d x %d", width, height);
     
     int widthSpec = MeasureSpec::makeMeasureSpec(width, MeasureSpec::EXACTLY);
     int heightSpec = MeasureSpec::makeMeasureSpec(height, MeasureSpec::EXACTLY);
     
-    // 测量根视图
     hostView->measure(widthSpec, heightSpec);
+    LOGI("Root view measured size: %d x %d", 
+         hostView->getMeasuredWidth(), 
+         hostView->getMeasuredHeight());
 }
 
 void ViewRoot::performLayout() {
-    LOGI("Performing layout");
-    
-    // 使用测量后的尺寸进行布局
     int width = hostView->getMeasuredWidth();
     int height = hostView->getMeasuredHeight();
     
+    LOGI("ViewRoot layout with size: %d x %d", width, height);
     hostView->layout(0, 0, width, height);
 }
 
@@ -71,7 +70,7 @@ void ViewRoot::performDraw() {
         return;
     }
     
-    LOGI("Performing draw");
+    // LOGI("Performing draw");
     
     // 清空背景为白色
     renderContext->clear();

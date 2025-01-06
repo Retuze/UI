@@ -1,4 +1,7 @@
 #include "view/view_group.h"
+#include "core/logger.h"
+
+LOG_TAG("ViewGroup");
 
 ViewGroup::ViewGroup() = default;
 
@@ -78,14 +81,29 @@ void ViewGroup::onDraw(RenderContext& context) {
 bool ViewGroup::dispatchEvent(const Event& event) {
     if (!visible) return false;
     
-    // 从上到下分发事件给子视图
+    LOGI("ViewGroup::dispatchEvent - event at (%d, %d)", event.x, event.y);
+    
     for (auto it = children.rbegin(); it != children.rend(); ++it) {
-        if ((*it)->isVisible() && (*it)->dispatchEvent(event)) {
-            return true;
+        auto* child = *it;
+        if (!child->isVisible()) continue;
+        
+        LOGI("Checking child bounds: x=%d, y=%d, w=%d, h=%d", 
+             child->bounds.x, child->bounds.y, 
+             child->bounds.width, child->bounds.height);
+        
+        if (child->bounds.contains(event.x, event.y)) {
+            Event childEvent = event;
+            childEvent.x = event.x - child->bounds.x;
+            childEvent.y = event.y - child->bounds.y;
+            
+            LOGI("Child hit! Converting coordinates to (%d, %d)", 
+                 childEvent.x, childEvent.y);
+            
+            if (child->dispatchEvent(childEvent)) {
+                return true;
+            }
         }
     }
-    
-    // 如果子视图都没处理，自己处理
     return onEvent(event);
 }
 
@@ -100,10 +118,8 @@ void ViewGroup::measureChild(View* child, int parentWidthMeasureSpec, int parent
             MeasureSpec::getSize(parentWidthMeasureSpec) - paddingLeft - paddingRight,
             MeasureSpec::EXACTLY);
     } else if (params.width == LayoutParams::WRAP_CONTENT) {
-        // WRAP_CONTENT: 最大不超过父容器
-        childWidthSpec = MeasureSpec::makeMeasureSpec(
-            MeasureSpec::getSize(parentWidthMeasureSpec) - paddingLeft - paddingRight,
-            MeasureSpec::AT_MOST);
+        // WRAP_CONTENT: 让子视图自己决定需要多少空间
+        childWidthSpec = MeasureSpec::makeMeasureSpec(0, MeasureSpec::UNSPECIFIED);
     } else {
         // 固定大小
         childWidthSpec = MeasureSpec::makeMeasureSpec(params.width, MeasureSpec::EXACTLY);

@@ -1,5 +1,8 @@
 #include "view/linear_layout.h"
 #include "view/measure_spec.h"
+#include "core/logger.h"
+
+LOG_TAG("LinearLayout");
 
 LinearLayout::LinearLayout(Orientation orientation) 
     : orientation(orientation) {}
@@ -40,9 +43,14 @@ void LinearLayout::measureVertical(int widthMeasureSpec, int heightMeasureSpec) 
         int childWidthSpec = MeasureSpec::makeMeasureSpec(
             params.width == LayoutParams::MATCH_PARENT ? 
                 MeasureSpec::getSize(widthMeasureSpec) - paddingLeft - paddingRight : 
-                params.width,
+                params.width == LayoutParams::WRAP_CONTENT ?
+                    MeasureSpec::getSize(widthMeasureSpec) - paddingLeft - paddingRight :
+                    params.width,
             params.width == LayoutParams::MATCH_PARENT ? 
-                MeasureSpec::EXACTLY : MeasureSpec::AT_MOST);
+                MeasureSpec::EXACTLY : 
+                params.width == LayoutParams::WRAP_CONTENT ?
+                    MeasureSpec::AT_MOST :
+                    MeasureSpec::EXACTLY);
                 
         int childHeightSpec = MeasureSpec::makeMeasureSpec(
             params.height == LayoutParams::MATCH_PARENT ? 
@@ -125,27 +133,29 @@ void LinearLayout::onLayout(bool changed, int l, int t, int r, int b) {
 }
 
 void LinearLayout::layoutVertical(bool changed, int l, int t, int r, int b) {
-    int childTop = paddingTop;
+    LOGI("LinearLayout::layoutVertical: l=%d, t=%d, r=%d, b=%d", l, t, r, b);
     
+    int childTop = paddingTop;
     for (auto* child : children) {
-        if (!child->isVisible()) {
-            continue;
-        }
+        if (!child->isVisible()) continue;
         
         auto& params = child->getLayoutParams();
-        int childWidth = r - l - paddingLeft - paddingRight;
+        int childWidth = r - l - paddingLeft - paddingRight - params.marginLeft - params.marginRight;
         int childHeight = child->getMeasuredHeight();
         
-        // 使用layout方法设置子视图边界
+        childTop += params.marginTop;
+        
+        LOGI("Child layout: top=%d, height=%d, margins(t=%d,b=%d)", 
+             childTop, childHeight, params.marginTop, params.marginBottom);
+             
         child->layout(
-            paddingLeft,
+            paddingLeft + params.marginLeft,
             childTop,
-            paddingLeft + childWidth,
+            paddingLeft + params.marginLeft + childWidth,
             childTop + childHeight
         );
         
-        // 更新下一个子视图的顶部位置
-        childTop += childHeight + params.marginTop + params.marginBottom;
+        childTop += childHeight + params.marginBottom;
     }
 }
 
@@ -184,6 +194,7 @@ void LinearLayout::layoutHorizontal(bool changed, int l, int t, int r, int b) {
             );
         }
         
-        childLeft += child->getMeasuredWidth() + params.marginLeft + params.marginRight;
+        // 更新下一个子视图的左边距
+        childLeft += params.marginLeft + child->getMeasuredWidth() + params.marginRight;
     }
 } 

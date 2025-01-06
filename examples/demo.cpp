@@ -15,25 +15,35 @@ public:
     void onCreate() override {
         LOGI("TestScreen::onCreate");
         
+        // 创建一个垂直布局容器
+        auto* container = new LinearLayout(LinearLayout::Orientation::Vertical);
+        container->setLayoutParams({
+            LayoutParams::MATCH_PARENT,
+            LayoutParams::MATCH_PARENT
+        });
+        container->setPadding(16, 16, 16, 16);
+        
         // 创建TextView
         auto* textView = new TextView("Hello, World!");
-        textView->setLayoutParams({LayoutParams::WRAP_CONTENT, LayoutParams::WRAP_CONTENT});
-
+        textView->setLayoutParams(
+            LayoutParams(LayoutParams::WRAP_CONTENT, LayoutParams::WRAP_CONTENT)
+                .setMargins(0, 16, 0, 0)
+        );
         textView->setTextSize(24.0f);
         textView->setTextColor(Color(0, 0, 255));
         textView->setTextAlignment(TextAlignment::Center);
         
         // 创建Button
         auto* button = new Button("Click Me!");
-        button->setLayoutParams({LayoutParams::WRAP_CONTENT, LayoutParams::WRAP_CONTENT});
+        button->setLayoutParams(
+            LayoutParams(LayoutParams::WRAP_CONTENT, LayoutParams::WRAP_CONTENT)
+                .setMargins(0, 16, 0, 0)
+        );
         button->setTextSize(20.0f);
         button->setOnClickListener([textView]() {
             textView->setText("Button Clicked!");
         });
         
-        // 创建一个容器来持有这些控件
-        auto* container = new ViewGroup();
-        container->setBounds({0, 0, 800, 600});  // 设置容器尺寸为窗口大小
         container->addView(textView);
         container->addView(button);
         
