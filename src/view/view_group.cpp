@@ -34,8 +34,9 @@ void ViewGroup::removeView(View* child) {
 
 void ViewGroup::removeAllViews() {
     for (auto* child : children) {
-        child->parent = nullptr;
-        delete child;
+        if (child) {
+            child->parent = nullptr;
+        }
     }
     children.clear();
     requestLayout();
@@ -110,36 +111,64 @@ bool ViewGroup::dispatchEvent(const Event& event) {
 void ViewGroup::measureChild(View* child, int parentWidthMeasureSpec, int parentHeightMeasureSpec) {
     auto& params = child->getLayoutParams();
     
-    // 处理宽度的MeasureSpec
-    int childWidthSpec;
-    if (params.width == LayoutParams::MATCH_PARENT) {
-        // MATCH_PARENT: 使用父容器的大小
-        childWidthSpec = MeasureSpec::makeMeasureSpec(
-            MeasureSpec::getSize(parentWidthMeasureSpec) - paddingLeft - paddingRight,
-            MeasureSpec::EXACTLY);
-    } else if (params.width == LayoutParams::WRAP_CONTENT) {
-        // WRAP_CONTENT: 让子视图自己决定需要多少空间
-        childWidthSpec = MeasureSpec::makeMeasureSpec(0, MeasureSpec::UNSPECIFIED);
-    } else {
-        // 固定大小
-        childWidthSpec = MeasureSpec::makeMeasureSpec(params.width, MeasureSpec::EXACTLY);
-    }
-    
-    // 处理高度的MeasureSpec
-    int childHeightSpec;
-    if (params.height == LayoutParams::MATCH_PARENT) {
-        childHeightSpec = MeasureSpec::makeMeasureSpec(
-            MeasureSpec::getSize(parentHeightMeasureSpec) - paddingTop - paddingBottom,
-            MeasureSpec::EXACTLY);
-    } else if (params.height == LayoutParams::WRAP_CONTENT) {
-        childHeightSpec = MeasureSpec::makeMeasureSpec(
-            MeasureSpec::getSize(parentHeightMeasureSpec) - paddingTop - paddingBottom,
-            MeasureSpec::AT_MOST);
-    } else {
-        childHeightSpec = MeasureSpec::makeMeasureSpec(params.height, MeasureSpec::EXACTLY);
-    }
-    
+    int childWidthSpec = getChildMeasureSpec(parentWidthMeasureSpec,
+        paddingLeft + paddingRight + params.marginLeft + params.marginRight,
+        params.width);
+        
+    int childHeightSpec = getChildMeasureSpec(parentHeightMeasureSpec,
+        paddingTop + paddingBottom + params.marginTop + params.marginBottom,
+        params.height);
+        
     child->measure(childWidthSpec, childHeightSpec);
+}
+
+int ViewGroup::getChildMeasureSpec(int spec, int padding, int childDimension) {
+    int specMode = MeasureSpec::getMode(spec);
+    int specSize = MeasureSpec::getSize(spec);
+    int size = std::max(0, specSize - padding);
+    
+    int resultSize = 0;
+    int resultMode = 0;
+    
+    switch (specMode) {
+    case MeasureSpec::EXACTLY:
+        if (childDimension >= 0) {
+            resultSize = childDimension;
+            resultMode = MeasureSpec::EXACTLY;
+        } else if (childDimension == LayoutParams::MATCH_PARENT) {
+            resultSize = size;
+            resultMode = MeasureSpec::EXACTLY;
+        } else if (childDimension == LayoutParams::WRAP_CONTENT) {
+            resultSize = size;
+            resultMode = MeasureSpec::AT_MOST;
+        }
+        break;
+        
+    case MeasureSpec::AT_MOST:
+        if (childDimension >= 0) {
+            resultSize = childDimension;
+            resultMode = MeasureSpec::EXACTLY;
+        } else if (childDimension == LayoutParams::MATCH_PARENT) {
+            resultSize = size;
+            resultMode = MeasureSpec::AT_MOST;
+        } else if (childDimension == LayoutParams::WRAP_CONTENT) {
+            resultSize = size;
+            resultMode = MeasureSpec::AT_MOST;
+        }
+        break;
+        
+    case MeasureSpec::UNSPECIFIED:
+        if (childDimension >= 0) {
+            resultSize = childDimension;
+            resultMode = MeasureSpec::EXACTLY;
+        } else {
+            resultSize = 0;
+            resultMode = MeasureSpec::UNSPECIFIED;
+        }
+        break;
+    }
+    
+    return MeasureSpec::makeMeasureSpec(resultSize, static_cast<MeasureSpec::Mode>(resultMode));
 }
 
 void ViewGroup::onMeasure(int widthMeasureSpec, int heightMeasureSpec) {

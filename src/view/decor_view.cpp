@@ -21,15 +21,25 @@ void DecorView::setContentView(View* view) {
 
 void DecorView::onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
     if (contentView) {
-        // 测量内容视图
-        measureChild(contentView, widthMeasureSpec, heightMeasureSpec);
+        auto& params = contentView->getLayoutParams();
+        
+        // 处理宽度
+        int childWidthSpec = ViewGroup::getChildMeasureSpec(widthMeasureSpec,
+            paddingLeft + paddingRight,
+            params.width);
+            
+        // 处理高度
+        int childHeightSpec = getChildMeasureSpec(heightMeasureSpec,
+            paddingTop + paddingBottom,
+            params.height);
+            
+        contentView->measure(childWidthSpec, childHeightSpec);
     }
     
-    // 设置自己的测量尺寸
-    setMeasuredDimension(
-        MeasureSpec::getSize(widthMeasureSpec),
-        MeasureSpec::getSize(heightMeasureSpec)
-    );
+    int width = MeasureSpec::getSize(widthMeasureSpec);
+    int height = MeasureSpec::getSize(heightMeasureSpec);
+    
+    setMeasuredDimension(width, height);
 }
 
 void DecorView::onLayout(bool changed, int left, int top, int right, int bottom) {
@@ -37,4 +47,8 @@ void DecorView::onLayout(bool changed, int left, int top, int right, int bottom)
         // 布局内容视图以填充整个DecorView
         contentView->layout(0, 0, right - left, bottom - top);
     }
+}
+
+int DecorView::getChildMeasureSpec(int spec, int padding, int childDimension) {
+    return ViewGroup::getChildMeasureSpec(spec, padding, childDimension);
 } 

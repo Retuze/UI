@@ -14,4 +14,5 @@ protected:
     
 private:
     View* contentView = nullptr;
+    int getChildMeasureSpec(int spec, int padding, int childDimension);
 }; 

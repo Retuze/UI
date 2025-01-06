@@ -10,6 +10,7 @@ struct LayoutParams {
     int marginTop = 0;
     int marginRight = 0;
     int marginBottom = 0;
+    float weight = 0.0f;
     
     LayoutParams() = default;
     LayoutParams(int w, int h) : width(w), height(h) {}
@@ -25,5 +26,10 @@ struct LayoutParams {
     
     LayoutParams& setMargin(int margin) {
         return setMargins(margin, margin, margin, margin);
+    }
+    
+    LayoutParams& setWeight(float w) {
+        weight = w;
+        return *this;
     }
 }; 

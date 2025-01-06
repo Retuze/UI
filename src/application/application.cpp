@@ -35,7 +35,7 @@ void Application::onCreate() {
 void Application::onTerminate() {
     LOGI("Application terminating...");
     
-    // 1. 先停止渲染
+    // 1. 先暂停渲染
     LOGI("1. Pausing rendering...");
     UIThread::getInstance().pauseRendering();
     

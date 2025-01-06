@@ -28,6 +28,8 @@ protected:
     std::unique_ptr<Layout> layoutManager;
     
     // 布局相关
+    int getChildMeasureSpec(int spec, int padding, int childDimension);
+    
     virtual void onLayout(bool changed, int l, int t, int r, int b);
     virtual void onMeasure(int widthMeasureSpec, int heightMeasureSpec) override;
 }; 

@@ -30,53 +30,76 @@ void LinearLayout::onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
 }
 
 void LinearLayout::measureVertical(int widthMeasureSpec, int heightMeasureSpec) {
+    int totalWeight = 0;
     int totalHeight = 0;
     int maxWidth = 0;
+    int childState = 0;
+    int alternativeMaxWidth = 0;
+    bool matchWidth = false;
     
-    // 测量所有子视图
+    // 第一次遍历：测量非weight子视图
     for (auto* child : children) {
         if (!child->isVisible()) continue;
         
         auto& params = child->getLayoutParams();
+        totalWeight += params.weight;
         
-        // 计算子视图的MeasureSpec
-        int childWidthSpec = MeasureSpec::makeMeasureSpec(
-            params.width == LayoutParams::MATCH_PARENT ? 
-                MeasureSpec::getSize(widthMeasureSpec) - paddingLeft - paddingRight : 
-                params.width == LayoutParams::WRAP_CONTENT ?
-                    MeasureSpec::getSize(widthMeasureSpec) - paddingLeft - paddingRight :
-                    params.width,
-            params.width == LayoutParams::MATCH_PARENT ? 
-                MeasureSpec::EXACTLY : 
-                params.width == LayoutParams::WRAP_CONTENT ?
-                    MeasureSpec::AT_MOST :
-                    MeasureSpec::EXACTLY);
-                
-        int childHeightSpec = MeasureSpec::makeMeasureSpec(
-            params.height == LayoutParams::MATCH_PARENT ? 
-                MeasureSpec::getSize(heightMeasureSpec) - totalHeight : 
-                params.height,
-            params.height == LayoutParams::MATCH_PARENT ? 
-                MeasureSpec::EXACTLY : MeasureSpec::AT_MOST);
+        if (params.weight == 0) {
+            measureChild(child, widthMeasureSpec, heightMeasureSpec);
+            totalHeight += child->getMeasuredHeight() + params.marginTop + params.marginBottom;
+            maxWidth = std::max(maxWidth, 
+                child->getMeasuredWidth() + params.marginLeft + params.marginRight);
+        } else if (params.height == 0) {
+            // 跳过weight>0且height=0的视图
+            continue;
+        }
         
-        // 测量子视图
-        child->measure(childWidthSpec, childHeightSpec);
-        
-        // 更新总高度和最大宽度
-        totalHeight += child->getMeasuredHeight() + params.marginTop + params.marginBottom;
-        maxWidth = std::max(maxWidth, 
-            child->getMeasuredWidth() + params.marginLeft + params.marginRight);
+        if (params.width == LayoutParams::MATCH_PARENT) {
+            matchWidth = true;
+        }
     }
     
     // 考虑padding
     totalHeight += paddingTop + paddingBottom;
     maxWidth += paddingLeft + paddingRight;
     
+    // 计算剩余空间
+    int remainingSpace = MeasureSpec::getSize(heightMeasureSpec) - totalHeight;
+    
+    // 第二次遍历：测量weight子视图
+    if (totalWeight > 0 && remainingSpace > 0) {
+        for (auto* child : children) {
+            if (!child->isVisible()) continue;
+            
+            auto& params = child->getLayoutParams();
+            if (params.weight > 0) {
+                int shareHeight = static_cast<int>(remainingSpace * params.weight / totalWeight);
+                
+                int childHeightSpec = MeasureSpec::makeMeasureSpec(
+                    shareHeight, MeasureSpec::EXACTLY);
+                int childWidthSpec = getChildMeasureSpec(widthMeasureSpec,
+                    paddingLeft + paddingRight + params.marginLeft + params.marginRight,
+                    params.width);
+                    
+                child->measure(childWidthSpec, childHeightSpec);
+                
+                maxWidth = std::max(maxWidth,
+                    child->getMeasuredWidth() + params.marginLeft + params.marginRight);
+            }
+        }
+    }
+    
     // 设置自己的测量尺寸
-    setMeasuredDimension(
-        MeasureSpec::resolveSize(maxWidth, widthMeasureSpec),
-        MeasureSpec::resolveSize(totalHeight, heightMeasureSpec)
-    );
+    int widthSize = MeasureSpec::getSize(widthMeasureSpec);
+    int heightSize = MeasureSpec::getSize(heightMeasureSpec);
+    
+    bool widthExactly = MeasureSpec::getMode(widthMeasureSpec) == MeasureSpec::EXACTLY;
+    bool heightExactly = MeasureSpec::getMode(heightMeasureSpec) == MeasureSpec::EXACTLY;
+    
+    int width = widthExactly ? widthSize : maxWidth;
+    int height = heightExactly ? heightSize : totalHeight;
+    
+    setMeasuredDimension(width, height);
 }
 
 void LinearLayout::measureHorizontal(int widthMeasureSpec, int heightMeasureSpec) {
@@ -133,28 +156,37 @@ void LinearLayout::onLayout(bool changed, int l, int t, int r, int b) {
 }
 
 void LinearLayout::layoutVertical(bool changed, int l, int t, int r, int b) {
-    LOGI("LinearLayout::layoutVertical: l=%d, t=%d, r=%d, b=%d", l, t, r, b);
+    int paddedLeft = l + paddingLeft;
+    int paddedRight = r - paddingRight;
+    int paddedTop = t + paddingTop;
+    int contentWidth = r - l - paddingLeft - paddingRight;
     
-    int childTop = paddingTop;
+    int childTop = paddedTop;
+    
     for (auto* child : children) {
         if (!child->isVisible()) continue;
         
         auto& params = child->getLayoutParams();
-        int childWidth = r - l - paddingLeft - paddingRight - params.marginLeft - params.marginRight;
+        int childWidth = child->getMeasuredWidth();
         int childHeight = child->getMeasuredHeight();
         
+        // 处理水平方向的gravity
+        int childLeft = paddedLeft + params.marginLeft;
+        if (childWidth < contentWidth) {
+            switch (gravity & Gravity::HORIZONTAL_GRAVITY_MASK) {
+                case Gravity::Center:
+                    childLeft = paddedLeft + (contentWidth - childWidth) / 2;
+                    break;
+                case Gravity::Right:
+                    childLeft = paddedRight - childWidth - params.marginRight;
+                    break;
+            }
+        }
+        
         childTop += params.marginTop;
-        
-        LOGI("Child layout: top=%d, height=%d, margins(t=%d,b=%d)", 
-             childTop, childHeight, params.marginTop, params.marginBottom);
-             
-        child->layout(
-            paddingLeft + params.marginLeft,
-            childTop,
-            paddingLeft + params.marginLeft + childWidth,
-            childTop + childHeight
-        );
-        
+        child->layout(childLeft, childTop, 
+                     childLeft + childWidth, 
+                     childTop + childHeight);
         childTop += childHeight + params.marginBottom;
     }
 }
@@ -197,4 +229,8 @@ void LinearLayout::layoutHorizontal(bool changed, int l, int t, int r, int b) {
         // 更新下一个子视图的左边距
         childLeft += params.marginLeft + child->getMeasuredWidth() + params.marginRight;
     }
+}
+
+int LinearLayout::getChildMeasureSpec(int spec, int padding, int childDimension) {
+    return ViewGroup::getChildMeasureSpec(spec, padding, childDimension);
 } 

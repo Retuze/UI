@@ -3,10 +3,9 @@
     "configurations": [
         {
             "name": "Debug SimpleGUI Demo",
-            "type": "lldb",
+            "type": "gdb",
             "request": "launch",
-            "program": "${workspaceFolder}/build/demo.exe",
-            "args": [],
+            "target": "${workspaceFolder}/build/demo.exe",
             "cwd": "${workspaceFolder}",
             "preLaunchTask": "build"
         }
