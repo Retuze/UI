@@ -33,28 +33,38 @@ void Application::onCreate() {
 }
 
 void Application::onTerminate() {
+    LOGI("Application terminating...");
+    
     // 1. 禁用窗口管理器，停止接收新的渲染请求
     if (windowManager) {
+        LOGI("Disabling window manager");
         windowManager->setEnabled(false);
     }
     
     // 2. 暂停UI线程渲染
+    LOGI("Pausing UI thread rendering");
     UIThread::getInstance().pauseRendering();
     
     // 3. 等待最后一帧渲染完成
+    LOGI("Waiting for last frame to complete");
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
     
-    // 4. 清理 Activities (此时不会触发新的渲染)
+    // 4. 清理 Activities
+    LOGI("Cleaning up activities");
     cleanupActivities();
     
     // 5. 停止 UI 线程
+    LOGI("Stopping UI thread");
     UIThread::getInstance().quit();
     
-    windowManager.reset();
-    renderContext.reset();
+    LOGI("Cleaning up render system");
+    cleanupRenderSystem();
     
     // 8. 清理其他资源
+    LOGI("Cleaning up remaining resources");
     cleanupResources();
+    
+    LOGI("Application terminated successfully");
 }
 
 void Application::startActivity(Activity* activity) {
@@ -140,14 +150,15 @@ bool Application::checkPermission(const std::string& permission) {
 
 void Application::initializeRenderSystem() {
     // 初始化渲染上下文
-    renderContext = std::make_unique<RenderContext>();
+    renderContext = new RenderContext();
     if (!renderContext->initialize(800, 600)) {
+        delete renderContext;
         throw std::runtime_error("Failed to initialize render context");
     }
     
     // 初始化窗口管理器
-    windowManager = std::make_unique<WindowManager>();
-    windowManager->setRenderContext(renderContext.get());
+    windowManager = new WindowManager();
+    windowManager->setRenderContext(renderContext);
 }
 
 void Application::initializeResourceSystem() {
@@ -187,8 +198,10 @@ void Application::cleanupRenderSystem() {
     if (renderContext && renderContext->getSurface()) {
         renderContext->getSurface()->close();
     }
-    windowManager.reset();
-    renderContext.reset();
+    delete windowManager;
+    windowManager = nullptr;
+    delete renderContext;
+    renderContext = nullptr;
 }
 
 void Application::cleanupResources() {

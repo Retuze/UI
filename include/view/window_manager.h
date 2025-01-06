@@ -2,18 +2,11 @@
 #include "view/view.h"
 #include "view/view_root.h"
 #include "graphics/render_context.h"
-#include <memory>
 
 class WindowManager {
 public:
     WindowManager() = default;
-    ~WindowManager() {
-        // 确保先清理ViewRoot
-        viewRoot.reset();
-        // 然后删除rootView
-        delete rootView;
-        rootView = nullptr;
-    }
+    ~WindowManager();
     // 窗口操作
     virtual void addView(View* view, const LayoutParams& params);
     virtual void updateViewLayout(View* view, const LayoutParams& params);

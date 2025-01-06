@@ -47,3 +47,6 @@ add_subdirectory(src)
 # 构建示例  
 add_executable(demo examples/demo.cpp)
 target_link_libraries(demo PRIVATE simplegui)
+
+# 为目标添加生成map文件的链接器标志
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-Map=${CMAKE_BINARY_DIR}/demo.map")

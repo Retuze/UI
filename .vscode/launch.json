@@ -7,7 +7,7 @@
             "request": "launch",
             "target": "${workspaceFolder}/build/demo.exe",
             "cwd": "${workspaceFolder}",
-            "preLaunchTask": "build"
+            "preLaunchTask": "build",
         }
     ]
 }

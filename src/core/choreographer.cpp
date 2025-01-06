@@ -28,18 +28,16 @@ void Choreographer::start() {
 }
 
 void Choreographer::stop() {
-    if (running) {
-        // 1. 先清除回调，确保不会再触发新的UI操作
+    if (running.load(std::memory_order_acquire)) {
+        LOGI("Choreographer stopping...");
         frameCallback = nullptr;
+        running.store(false, std::memory_order_release);
         
-        // 2. 再停止线程
-        running = false;
-        
-        // 3. 等待线程结束
         if (vsyncThread && vsyncThread->joinable()) {
             vsyncThread->join();
         }
         vsyncThread.reset();
+        LOGI("Choreographer stopped successfully");
     }
 }
 
@@ -51,14 +49,13 @@ bool Choreographer::isDwmEnabled() const {
 }
 
 void Choreographer::vsyncLoop() {
+    LOGI("VSync loop started");
     auto lastVsync = std::chrono::steady_clock::now();
     
-    while (running) {
+    while (running.load(std::memory_order_acquire)) {
         if (isDwmEnabled()) {
-            // 等待下一个VSync信号
             DwmFlush();
         } else {
-            // 如果DWM不可用,回退到定时器模式
             auto now = std::chrono::steady_clock::now();
             auto targetVsync = lastVsync + std::chrono::nanoseconds(frameIntervalNanos);
             if (targetVsync > now) {
@@ -66,22 +63,23 @@ void Choreographer::vsyncLoop() {
             }
         }
         
-        // 记录当前时间并计算间隔
         auto currentVsync = std::chrono::steady_clock::now();
-        auto frameInterval = std::chrono::duration_cast<std::chrono::nanoseconds>(
-            currentVsync - lastVsync).count();
-        // LOGI("Frame interval: %lldns", frameInterval);
-        
-        // 更新上一帧时间
         lastVsync = currentVsync;
         
-        // 在UI线程执行帧回调
-        if (frameCallback) {
+        // 重要：检查是否还在运行
+        if (!running.load(std::memory_order_acquire)) {
+            break;
+        }
+        
+        // 获取回调的本地副本
+        auto callback = frameCallback;
+        if (callback) {
             auto frameTimeNanos = std::chrono::duration_cast<std::chrono::nanoseconds>(
                 currentVsync.time_since_epoch()).count();
-            UIThread::getInstance().runOnUiThread([this, frameTimeNanos]() {
-                frameCallback(frameTimeNanos);
+            UIThread::getInstance().runOnUiThread([callback, frameTimeNanos]() {
+                callback(frameTimeNanos);
             });
         }
     }
+    LOGI("VSync loop exited");
 } 

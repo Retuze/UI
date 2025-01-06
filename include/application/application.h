@@ -14,8 +14,8 @@ public:
     static Application& getInstance();
     
     // Context接口实现
-    WindowManager* getWindowManager() override { return windowManager.get(); }
-    RenderContext* getRenderContext() override { return renderContext.get(); }
+    WindowManager* getWindowManager() override { return windowManager; }
+    RenderContext* getRenderContext() override { return renderContext; }
     Application* getApplication() override { return this; }
     std::string getResourcePath() const override;
     bool checkPermission(const std::string& permission) override;
@@ -38,8 +38,8 @@ public:
 private:
     std::vector<Activity*> activities;
     Activity* currentActivity = nullptr;
-    std::unique_ptr<WindowManager> windowManager;
-    std::unique_ptr<RenderContext> renderContext;
+    WindowManager* windowManager = nullptr;
+    RenderContext* renderContext = nullptr;
     
     // 初始化相关
     void initializeRenderSystem();

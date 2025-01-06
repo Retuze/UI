@@ -164,19 +164,27 @@ void MessageQueue::removeMessagesForHandler(Handler* handler)
 
 void MessageQueue::quit()
 {
+    LOGI("MessageQueue quitting...");
+    
     {
         std::lock_guard<std::mutex> lock(mutex);
+        LOGI("Setting quit flag");
         quitting = true;
     }
     
     // 通知所有等待的线程
+    LOGI("Notifying waiting threads");
     messageAvailable.notify_all();
     
     // 等待所有正在处理的消息完成
+    LOGI("Yielding for pending messages");
     std::this_thread::yield();
     
     // 清理剩余消息
+    LOGI("Removing all remaining messages");
     removeAllMessages();
+    
+    LOGI("MessageQueue quit successfully");
 }
 
 void MessageQueue::removeAllMessages()

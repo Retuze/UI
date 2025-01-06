@@ -1,5 +1,8 @@
 #include "view/window_manager.h"
 #include "view/decor_view.h"
+#include "core/logger.h"
+
+LOG_TAG("WindowManager");
 
 void WindowManager::addView(View* view, const LayoutParams& params) {
     // 首次添加视图时创建根视图结构
@@ -49,3 +52,18 @@ void WindowManager::performTraversals() {
     }
     viewRoot->performTraversals();
 } 
+
+WindowManager::~WindowManager(){
+        LOGI("WindowManager destructor...");
+        
+        // 确保先清理ViewRoot
+        LOGI("Cleaning up ViewRoot");
+        viewRoot.reset();
+        
+        // 然后删除rootView
+        LOGI("Cleaning up root view");
+        delete rootView;
+        rootView = nullptr;
+        
+        LOGI("WindowManager destroyed successfully");
+    }

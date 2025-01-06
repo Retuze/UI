@@ -92,25 +92,30 @@ void UIThread::quit() {
         LOGI("UIThread quitting...");
         
         // 1. 先停止渲染和Choreographer
+        LOGI("Stopping rendering and choreographer");
         renderingPaused = true;
         auto& choreographer = Choreographer::getInstance();
         choreographer.stop();
         choreographer.setFrameCallback(nullptr);
         
         // 2. 设置退出标志
+        LOGI("Setting quit flag");
         running = false;
         
         // 3. 通知消息队列退出
+        LOGI("Quitting message queue");
         if (threadLooper) {
             threadLooper->getQueue()->quit();
         }
         
         // 4. 等待UI线程结束
+        LOGI("Waiting for UI thread to join");
         if (thread.joinable()) {
             thread.join();
         }
         
         // 5. 清理资源
+        LOGI("Cleaning up UI thread resources");
         delete uiHandler;
         delete threadLooper;
         uiHandler = nullptr;
