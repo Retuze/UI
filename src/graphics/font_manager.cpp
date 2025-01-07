@@ -163,12 +163,12 @@ int FontManager::decodeUTF8(const unsigned char* str, uint32_t* out_codepoint) {
 }
 
 FontManager::~FontManager() {
-    // if (face) {
-    //     FT_Done_Face(face);
-    //     face = nullptr;
-    // }
-    // if (library) {
-    //     FT_Done_FreeType(library);
-    //     library = nullptr;
-    // }
+    if (face) {
+        FT_Done_Face(face);
+        face = nullptr;
+    }
+    if (library) {
+        FT_Done_FreeType(library);
+        library = nullptr;
+    }
 } 
