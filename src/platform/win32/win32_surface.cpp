@@ -1,33 +1,168 @@
 #include "platform/win32/win32_surface.h"
-#include "core/event.h"
-#include "graphics/ui_thread.h"
-#include "application/application.h"
-#include "core/choreographer.h"
+#include "core/logger.h"
 #include <stdexcept>
-#include <windowsx.h>
 
-namespace {
-    constexpr const wchar_t* WINDOW_CLASS_NAME = L"SimpleGUISurface";
-}
+LOG_TAG("Win32Surface");
 
-// Surface工厂方法实现
-std::unique_ptr<Surface> Surface::create(int width, int height, PixelFormat format) {
-    return std::make_unique<Win32Surface>(width, height, format);
-}
-
-Win32Surface::Win32Surface(int width, int height, PixelFormat format) 
-    : width(width), height(height), format(format) {
+Win32Surface::Win32Surface(const SurfaceConfig& config) : config(config) {
+    // 创建缓冲区数组
+    buffers.resize(config.bufferCount);
 }
 
 Win32Surface::~Win32Surface() {
-    if (memBitmap) {
-        DeleteObject(memBitmap);
+    destroy();
+}
+
+bool Win32Surface::initialize() {
+    if (initialized) {
+        return true;
     }
-    if (memDC) {
-        DeleteDC(memDC);
-    }
+
+    // 启动窗口线程
+    windowThread = std::thread(&Win32Surface::windowThreadProc, this);
+    
+    // 等待窗口创建完成
+    std::unique_lock<std::mutex> lock(windowMutex);
+    windowCreated.wait(lock, [this]() { return hwnd != nullptr; });
+    
+    initialized = true;
+    return true;
+}
+
+void Win32Surface::destroy() {
     if (hwnd) {
-        DestroyWindow(hwnd);
+        PostMessage(hwnd, WM_CLOSE, 0, 0);
+    }
+    
+    if (windowThread.joinable()) {
+        windowThread.join();
+    }
+    
+    // 清理缓冲区
+    for (auto& buffer : buffers) {
+        if (buffer.bitmap) {
+            DeleteObject(buffer.bitmap);
+        }
+        if (buffer.dc) {
+            DeleteDC(buffer.dc);
+        }
+    }
+    buffers.clear();
+    
+    initialized = false;
+}
+
+void* Win32Surface::dequeueBuffer() {
+    std::unique_lock<std::mutex> lock(bufferMutex);
+    
+    // 查找下一个可用缓冲区
+    for (size_t i = 0; i < buffers.size(); i++) {
+        int index = (currentBuffer + i + 1) % buffers.size();
+        if (!buffers[index].inUse) {
+            currentBuffer = index;
+            buffers[index].inUse = true;
+            return buffers[index].bits;
+        }
+    }
+    
+    // 等待缓冲区可用
+    bufferAvailable.wait(lock);
+    return dequeueBuffer();
+}
+
+bool Win32Surface::queueBuffer() {
+    std::unique_lock<std::mutex> lock(bufferMutex);
+    
+    // 将当前缓冲区加入显示队列
+    displayQueue.push(currentBuffer);
+    
+    return true;
+}
+
+void Win32Surface::present() {
+    std::unique_lock<std::mutex> lock(bufferMutex);
+    
+    if (displayQueue.empty()) {
+        return;
+    }
+    
+    // 获取待显示的缓冲区
+    int displayIndex = displayQueue.front();
+    displayQueue.pop();
+    
+    // 等待VSync
+    if (config.vsyncEnabled) {
+        waitVSync();
+    }
+    
+    // 显示缓冲区
+    if (hwnd && buffers[displayIndex].dc) {
+        HDC hdc = GetDC(hwnd);
+        if (hdc) {
+            BitBlt(hdc, 0, 0, config.width, config.height,
+                   buffers[displayIndex].dc, 0, 0, SRCCOPY);
+            ReleaseDC(hwnd, hdc);
+        }
+    }
+    
+    // 释放显示完成的缓冲区
+    buffers[displayIndex].inUse = false;
+    bufferAvailable.notify_one();
+}
+
+void Win32Surface::windowThreadProc() {
+    // 注册窗口类
+    registerClass();
+    
+    // 创建窗口
+    RECT rect = {0, 0, config.width, config.height};
+    AdjustWindowRect(&rect, WS_OVERLAPPEDWINDOW, FALSE);
+    
+    hwnd = CreateWindowW(L"SimpleGUISurface", L"SimpleGUI",
+                        WS_OVERLAPPEDWINDOW,
+                        CW_USEDEFAULT, CW_USEDEFAULT,
+                        rect.right - rect.left,
+                        rect.bottom - rect.top,
+                        nullptr, nullptr,
+                        GetModuleHandle(NULL), this);
+                        
+    if (!hwnd) {
+        LOGE("Failed to create window");
+        return;
+    }
+    
+    // 初始化GDI缓冲区
+    HDC hdc = GetDC(hwnd);
+    for (auto& buffer : buffers) {
+        buffer.dc = CreateCompatibleDC(hdc);
+        BITMAPINFO bmi = {};
+        bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+        bmi.bmiHeader.biWidth = config.width;
+        bmi.bmiHeader.biHeight = -config.height; // 负值表示从上到下
+        bmi.bmiHeader.biPlanes = 1;
+        bmi.bmiHeader.biBitCount = 32;
+        bmi.bmiHeader.biCompression = BI_RGB;
+        
+        buffer.bitmap = CreateDIBSection(buffer.dc, &bmi, DIB_RGB_COLORS,
+                                       &buffer.bits, NULL, 0);
+        SelectObject(buffer.dc, buffer.bitmap);
+    }
+    ReleaseDC(hwnd, hdc);
+    
+    // 通知窗口创建完成
+    {
+        std::lock_guard<std::mutex> lock(windowMutex);
+        windowCreated.notify_all();
+    }
+    
+    ShowWindow(hwnd, SW_SHOW);
+    UpdateWindow(hwnd);
+    
+    // 消息循环
+    MSG msg;
+    while (GetMessage(&msg, nullptr, 0, 0)) {
+        TranslateMessage(&msg);
+        DispatchMessage(&msg);
     }
 }
 
@@ -40,7 +175,7 @@ ATOM Win32Surface::registerClass() {
         wcex.lpfnWndProc = Win32Surface::WndProc;
         wcex.hInstance = GetModuleHandle(NULL);
         wcex.hCursor = LoadCursor(nullptr, IDC_ARROW);
-        wcex.lpszClassName = WINDOW_CLASS_NAME;
+        wcex.lpszClassName = L"SimpleGUISurface";
         
         atom = RegisterClassExW(&wcex);
         if (atom == 0) {
@@ -50,194 +185,25 @@ ATOM Win32Surface::registerClass() {
     return atom;
 }
 
-bool Win32Surface::initialize() {
-    // 注册窗口类
-    registerClass();
-    
-    // 创建窗口
-    hwnd = CreateWindowW(
-        WINDOW_CLASS_NAME,
-        L"SimpleGUI",
-        WS_OVERLAPPEDWINDOW,
-        CW_USEDEFAULT, CW_USEDEFAULT,
-        width, height,
-        NULL, NULL,
-        GetModuleHandle(NULL),
-        this
-    );
-    
-    if (!hwnd) {
-        return false;
-    }
-    
-    // 创建内存DC和位图
-    HDC hdc = GetDC(hwnd);
-    memDC = CreateCompatibleDC(hdc);
-    ReleaseDC(hwnd, hdc);
-    
-    if (!memDC) {
-        return false;
-    }
-    
-    // 设置位图信息
-    bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-    bmi.bmiHeader.biWidth = width;
-    bmi.bmiHeader.biHeight = -height;  // 负值表示从上到下
-    bmi.bmiHeader.biPlanes = 1;
-    bmi.bmiHeader.biBitCount = 32;
-    bmi.bmiHeader.biCompression = BI_RGB;
-    bmi.bmiHeader.biSizeImage = width * height * 4;
-    
-    // 创建DIB
-    memBitmap = CreateDIBSection(
-        memDC,
-        &bmi,
-        DIB_RGB_COLORS,
-        &bits,
-        NULL,
-        0
-    );
-    
-    if (!memBitmap) {
-        return false;
-    }
-    
-    SelectObject(memDC, memBitmap);
-    
-    // 显示窗口
-    ShowWindow(hwnd, SW_SHOW);
-    UpdateWindow(hwnd);
-    
-    return true;
-}
-
-void* Win32Surface::lock(int* stride) {
-    if (stride) {
-        *stride = width * 4;  // 32位色深
-    }
-    return bits;
-}
-
-void Win32Surface::unlock() {
-    // 在这个实现中不需要做什么
-}
-
-void Win32Surface::present() {
-    if (!hwnd || !memDC) return;
-    
-    HDC hdc = GetDC(hwnd);
-    if (hdc) {
-        BitBlt(hdc, 0, 0, width, height, memDC, 0, 0, SRCCOPY);
-        ReleaseDC(hwnd, hdc);
-    }
-}
-
-LRESULT CALLBACK Win32Surface::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+LRESULT CALLBACK Win32Surface::WndProc(HWND hwnd, UINT msg,
+                                      WPARAM wParam, LPARAM lParam) {
     Win32Surface* surface = nullptr;
     
     if (msg == WM_CREATE) {
         CREATESTRUCT* cs = reinterpret_cast<CREATESTRUCT*>(lParam);
         surface = static_cast<Win32Surface*>(cs->lpCreateParams);
-        SetWindowLongPtr(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(surface));
-        return DefWindowProc(hwnd, msg, wParam, lParam);
+        SetWindowLongPtr(hwnd, GWLP_USERDATA,
+                        reinterpret_cast<LONG_PTR>(surface));
     } else {
-        surface = reinterpret_cast<Win32Surface*>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
+        surface = reinterpret_cast<Win32Surface*>(
+            GetWindowLongPtr(hwnd, GWLP_USERDATA));
     }
     
-    if (surface) {
-        Event event;
-        bool hasEvent = false;
-        
-        switch (msg) {
-            case WM_CLOSE:
-                DestroyWindow(hwnd);
-                return 0;
-                
-            case WM_DESTROY:
-                if (surface) {
-                    Event event;
-                    event.type = EventType::Quit;
-                    surface->queueEvent(event);
-                }
-                PostQuitMessage(0);
-                return 0;
-                
-            case WM_MOUSEMOVE:
-                // event.type = EventType::MouseMove;
-                // event.x = GET_X_LPARAM(lParam);
-                // event.y = GET_Y_LPARAM(lParam);
-                // hasEvent = true;
-                break;
-                
-            case WM_LBUTTONDOWN:
-                event.type = EventType::MousePress;
-                event.x = GET_X_LPARAM(lParam);
-                event.y = GET_Y_LPARAM(lParam);
-                event.button = 1;
-                hasEvent = true;
-                break;
-                
-            case WM_LBUTTONUP:
-                event.type = EventType::MouseRelease;
-                event.x = GET_X_LPARAM(lParam);
-                event.y = GET_Y_LPARAM(lParam);
-                event.button = 1;
-                hasEvent = true;
-                break;
-                
-            default:
-                return DefWindowProc(hwnd, msg, wParam, lParam);
-        }
-        
-        
-        if (hasEvent) {
-            surface->queueEvent(event);
+    switch (msg) {
+        case WM_DESTROY:
+            PostQuitMessage(0);
             return 0;
-        }
     }
     
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }
-
-void Win32Surface::resizeBuffers(int newWidth, int newHeight) {
-    width = newWidth;
-    height = newHeight;
-    
-    if (memBitmap) {
-        DeleteObject(memBitmap);
-    }
-    
-    bmi.bmiHeader.biWidth = width;
-    bmi.bmiHeader.biHeight = -height;
-    
-    memBitmap = CreateDIBSection(memDC, &bmi, DIB_RGB_COLORS, &bits, NULL, 0);
-    SelectObject(memDC, memBitmap);
-}
-
-bool Win32Surface::pollEvent(Event& event) {
-    MSG msg;
-    while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
-        if (msg.message == WM_QUIT) {
-            event.type = EventType::Quit;
-            return true;
-        }
-        TranslateMessage(&msg);
-        DispatchMessage(&msg);
-    }
-    
-    std::lock_guard<std::mutex> lock(eventMutex);
-    if (!eventQueue.empty()) {
-        event = eventQueue.front();
-        eventQueue.pop();
-        return true;
-    }
-    
-    return false;
-}
-
-bool Win32Surface::close() {
-    if (hwnd) {
-        SendMessage(hwnd, WM_CLOSE, 0, 0);
-    }
-    return true;
-} 

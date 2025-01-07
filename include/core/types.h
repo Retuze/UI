@@ -42,22 +42,6 @@ struct Rect {
     }
 };
 
-class Bitmap {
-public:
-    Bitmap(int width, int height);
-    ~Bitmap();
-    
-    void* getPixels() const { return pixels; }
-    int getWidth() const { return width; }
-    int getHeight() const { return height; }
-    int getStride() const { return stride; }
-    
-private:
-    void* pixels = nullptr;
-    int width = 0;
-    int height = 0;
-    int stride = 0;
-};
 
 struct Color {
     uint8_t r, g, b, a;
@@ -133,3 +117,22 @@ enum class PixelFormat {
     BGRA8888LE,   // 32位
     A8LE,         // 8位alpha通道，用于字体渲染
 }; 
+
+class Bitmap {
+public:
+    Bitmap(int width, int height, PixelFormat format = PixelFormat::RGBA8888BE);
+    ~Bitmap();
+    
+    PixelFormat getFormat() const { return format; }
+    void* getPixels() const { return pixels; }
+    int getWidth() const { return width; }
+    int getHeight() const { return height; }
+    int getStride() const { return stride; }
+    
+private:
+    void* pixels = nullptr;
+    int width = 0;
+    int height = 0;
+    int stride = 0;
+    PixelFormat format = PixelFormat::RGBA8888BE;
+};

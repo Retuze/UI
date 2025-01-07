@@ -1,48 +1,68 @@
 #pragma once
 #include "graphics/surface.h"
+#include <condition_variable>
+#include <thread>
 #include <queue>
+#include <mutex>
 #include <windows.h>
 
 class Win32Surface : public Surface {
 public:
-    Win32Surface(int width, int height, PixelFormat format = PixelFormat::BGRA8888LE);
+    Win32Surface(const SurfaceConfig& config);
     ~Win32Surface() override;
     
     // Surface接口实现
     bool initialize() override;
-    void* lock(int* stride) override;
-    void unlock() override;
-    void present() override;
-    bool pollEvent(Event& event) override;
-    bool close() override;
+    void destroy() override;
     
-    int getWidth() const override { return width; }
-    int getHeight() const override { return height; }
-    PixelFormat getPixelFormat() const override { return format; }
+    // 缓冲区操作
+    void* dequeueBuffer() override;
+    bool queueBuffer() override;
+    void present() override;
+    
+    // 显示控制
+    void waitVSync() override;
+    void setVSyncEnabled(bool enabled) override;
+    
+    // 属性访问
+    int getWidth() const override { return config.width; }
+    int getHeight() const override { return config.height; }
+    PixelFormat getPixelFormat() const override { return config.format; }
+    int getBufferCount() const override { return config.bufferCount; }
+    bool isVSyncEnabled() const override { return config.vsyncEnabled; }
+    
+    // 事件处理
+    bool pollEvent(Event& event) override;
     
     // Win32特有方法
     HWND getHWND() const { return hwnd; }
     
 private:
-    int width;
-    int height;
-    PixelFormat format;
+    SurfaceConfig config;
+    bool initialized = false;
+    std::thread windowThread;
     
-    // GDI相关
+    // 窗口相关
     HWND hwnd = nullptr;
-    HDC memDC = nullptr;
-    HBITMAP memBitmap = nullptr;
-    void* bits = nullptr;
-    BITMAPINFO bmi = {};
+    std::mutex windowMutex;
+    std::condition_variable windowCreated;
+    
+    // GDI缓冲区
+    struct Buffer {
+        HDC dc = nullptr;
+        HBITMAP bitmap = nullptr;
+        void* bits = nullptr;
+        bool inUse = false;
+    };
+    std::vector<Buffer> buffers;
+    int currentBuffer = 0;
+    std::queue<int> displayQueue;  // 显示队列
+    
+    // 同步相关
+    std::mutex bufferMutex;
+    std::condition_variable bufferAvailable;
     
     static ATOM registerClass();
     static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
-    void resizeBuffers(int newWidth, int newHeight);
-    std::queue<Event> eventQueue;
-    std::mutex eventMutex;
-    
-    void queueEvent(const Event& event) {
-        std::lock_guard<std::mutex> lock(eventMutex);
-        eventQueue.push(event);
-    }
+    void windowThreadProc();
 }; 
