@@ -1,6 +1,9 @@
 #include "activity/activity.h"
 #include "application/application.h"
 #include "view/window_manager.h"
+#include "core/logger.h"
+
+LOG_TAG("Activity");
 
 Activity::Activity() {
     // Remove unnecessary rootLayout initialization
@@ -62,7 +65,9 @@ void Activity::dispatchDestroy() {
     
     // 1. 先从窗口管理器移除视图
     if (auto* wm = Application::getInstance().getWindowManager()) {
-        if (contentView) {
+        if (!contentView) {
+            LOGE("ContentView is null in dispatchDestroy");
+        } else {
             wm->removeView(contentView);
             // 2. 等待视图从渲染树中完全移除
             std::this_thread::sleep_for(std::chrono::milliseconds(16));

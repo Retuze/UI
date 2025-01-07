@@ -36,7 +36,9 @@ void Application::onTerminate() {
     LOGI("Application terminating...");
     
     // 1. 禁用窗口管理器，停止接收新的渲染请求
-    if (windowManager) {
+    if (!windowManager) {
+        LOGE("WindowManager is null in onTerminate");
+    } else {
         LOGI("Disabling window manager");
         windowManager->setEnabled(false);
     }
@@ -63,8 +65,6 @@ void Application::onTerminate() {
     // 8. 清理其他资源
     LOGI("Cleaning up remaining resources");
     cleanupResources();
-    
-    LOGI("Application terminated successfully");
 }
 
 void Application::startActivity(Activity* activity) {
@@ -114,12 +114,14 @@ void Application::finishActivity(Activity* activity) {
 }
 
 bool Application::pollEvent(Event& event) {
-    // 检查渲染上下文是否有效
-    if (!renderContext || !renderContext->getSurface()) {
+    if (!renderContext) {
+        LOGE("RenderContext is null in pollEvent");
         return false;
     }
-    
-    // 从窗口系统获取事件
+    if (!renderContext->getSurface()) {
+        LOGE("RenderContext surface is null in pollEvent");
+        return false;
+    }
     return renderContext->getSurface()->pollEvent(event);
 }
 
@@ -133,9 +135,11 @@ void Application::dispatchEvent(const Event& event) {
 }
 
 void Application::render() {
-    if (windowManager) {
-        windowManager->performTraversals();
+    if (!windowManager) {
+        LOGE("WindowManager is null in render");
+        return;
     }
+    windowManager->performTraversals();
 }
 
 std::string Application::getResourcePath() const {

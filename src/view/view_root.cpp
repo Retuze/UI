@@ -23,7 +23,12 @@ void ViewRoot::requestLayout() {
 }
 
 void ViewRoot::performTraversals() {
-    if (!hostView || !renderContext) {
+    if (!hostView) {
+        LOGE("HostView is null in performTraversals");
+        return;
+    }
+    if (!renderContext) {
+        LOGE("RenderContext is null in performTraversals");
         return;
     }
     
