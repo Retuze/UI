@@ -118,11 +118,11 @@ bool Application::pollEvent(Event& event) {
         LOGE("RenderContext is null in pollEvent");
         return false;
     }
-    if (!renderContext->getSurface()) {
+    if (!mainSurface) {
         LOGE("RenderContext surface is null in pollEvent");
         return false;
     }
-    return renderContext->getSurface()->pollEvent(event);
+    return mainSurface->pollEvent(event);
 }
 
 void Application::dispatchEvent(const Event& event) {
@@ -153,16 +153,25 @@ bool Application::checkPermission(const std::string& permission) {
 }
 
 void Application::initializeRenderSystem() {
-    // 初始化渲染上下文
-    renderContext = new RenderContext();
-    if (!renderContext->initialize(800, 600)) {
-        delete renderContext;
-        throw std::runtime_error("Failed to initialize render context");
+    // 1. 创建主窗口 Surface
+    SurfaceConfig config{
+        .width = 800,
+        .height = 600,
+        .format = PixelFormat::BGRA8888_LE(),
+        .bufferCount = 2,
+        .vsyncEnabled = true
+    };
+    mainSurface = Surface::create(config);
+    if (!mainSurface->initialize()) {
+        throw std::runtime_error("Failed to initialize surface");
     }
     
-    // 初始化窗口管理器
-    windowManager = new WindowManager();
-    windowManager->setRenderContext(renderContext);
+    // 2. 创建渲染上下文
+    renderContext = std::make_unique<RenderContext>();
+    
+    // 3. 初始化窗口管理器
+    windowManager = std::make_unique<WindowManager>();
+    windowManager->setRenderContext(renderContext.get());
 }
 
 void Application::initializeResourceSystem() {
@@ -199,12 +208,11 @@ void Application::cleanupActivities() {
 }
 
 void Application::cleanupRenderSystem() {
-    if (renderContext && renderContext->getSurface()) {
-        renderContext->getSurface()->close();
+    if (mainSurface) {
+        mainSurface->destroy();
+        mainSurface = nullptr;
     }
-    delete windowManager;
     windowManager = nullptr;
-    delete renderContext;
     renderContext = nullptr;
 }
 

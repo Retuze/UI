@@ -18,9 +18,8 @@ private:
     FontManager() = default;
     ~FontManager();
     
-    void renderGlyph(uint32_t* pixels, int stride, 
-                    const FT_Bitmap& bitmap, int x, int y,
-                    Color color, const Rect& clipRect);
+    void renderGlyph(Bitmap* bitmap, const FT_Bitmap& ftBitmap,
+                    int x, int y, Color color, const Rect& clipRect);
     int decodeUTF8(const unsigned char* str, uint32_t* out_codepoint);
     
     FT_Library library = nullptr;

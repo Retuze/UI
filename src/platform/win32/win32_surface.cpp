@@ -5,7 +5,10 @@
 LOG_TAG("Win32Surface");
 
 Win32Surface::Win32Surface(const SurfaceConfig& config) : config(config) {
-    // 创建缓冲区数组
+    // 强制使用BGRA8888格式,这是GDI的标准格式
+    this->config.format = PixelFormat::BGRA8888_LE();
+    
+    // 只创建缓冲区数组
     buffers.resize(config.bufferCount);
 }
 
@@ -25,6 +28,33 @@ bool Win32Surface::initialize() {
     std::unique_lock<std::mutex> lock(windowMutex);
     windowCreated.wait(lock, [this]() { return hwnd != nullptr; });
     
+    // 初始化GDI缓冲区
+    HDC hdc = GetDC(hwnd);
+    for (auto& buffer : buffers) {
+        buffer.dc = CreateCompatibleDC(hdc);
+        BITMAPINFO bmi = {};
+        bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+        bmi.bmiHeader.biWidth = config.width;
+        bmi.bmiHeader.biHeight = -config.height; // 负值表示从上到下
+        bmi.bmiHeader.biPlanes = 1;
+        bmi.bmiHeader.biBitCount = config.format.getBitsPerPixel();
+        bmi.bmiHeader.biCompression = BI_RGB;
+        
+        void* bits = nullptr;
+        buffer.winBitmap = CreateDIBSection(buffer.dc, &bmi, DIB_RGB_COLORS,
+                                          &bits, NULL, 0);
+        
+        // 创建Bitmap并直接使用DIBSection的缓冲区
+        buffer.bitmap = std::make_unique<Bitmap>(
+            config.width,
+            config.height,
+            config.format
+        );
+        buffer.bitmap->setPixels(bits);  // 使用DIBSection的缓冲区
+        SelectObject(buffer.dc, buffer.winBitmap);
+    }
+    ReleaseDC(hwnd, hdc);
+    
     initialized = true;
     return true;
 }
@@ -40,19 +70,20 @@ void Win32Surface::destroy() {
     
     // 清理缓冲区
     for (auto& buffer : buffers) {
-        if (buffer.bitmap) {
-            DeleteObject(buffer.bitmap);
+        if (buffer.winBitmap) {
+            DeleteObject(buffer.winBitmap);
         }
         if (buffer.dc) {
             DeleteDC(buffer.dc);
         }
+        buffer.bitmap.reset();
     }
     buffers.clear();
     
     initialized = false;
 }
 
-void* Win32Surface::dequeueBuffer() {
+Bitmap* Win32Surface::lockBuffer() {
     std::unique_lock<std::mutex> lock(bufferMutex);
     
     // 查找下一个可用缓冲区
@@ -61,22 +92,18 @@ void* Win32Surface::dequeueBuffer() {
         if (!buffers[index].inUse) {
             currentBuffer = index;
             buffers[index].inUse = true;
-            return buffers[index].bits;
+            return buffers[index].bitmap.get();
         }
     }
     
     // 等待缓冲区可用
     bufferAvailable.wait(lock);
-    return dequeueBuffer();
+    return buffers[currentBuffer].bitmap.get();
 }
 
-bool Win32Surface::queueBuffer() {
+void Win32Surface::unlockBuffer() {
     std::unique_lock<std::mutex> lock(bufferMutex);
-    
-    // 将当前缓冲区加入显示队列
     displayQueue.push(currentBuffer);
-    
-    return true;
 }
 
 void Win32Surface::present() {
@@ -86,16 +113,14 @@ void Win32Surface::present() {
         return;
     }
     
-    // 获取待显示的缓冲区
     int displayIndex = displayQueue.front();
     displayQueue.pop();
     
-    // 等待VSync
     if (config.vsyncEnabled) {
         waitVSync();
     }
     
-    // 显示缓冲区
+    // 直接使用BitBlt显示,因为我们知道格式是BGRA8888
     if (hwnd && buffers[displayIndex].dc) {
         HDC hdc = GetDC(hwnd);
         if (hdc) {
@@ -105,7 +130,6 @@ void Win32Surface::present() {
         }
     }
     
-    // 释放显示完成的缓冲区
     buffers[displayIndex].inUse = false;
     bufferAvailable.notify_one();
 }
@@ -130,24 +154,6 @@ void Win32Surface::windowThreadProc() {
         LOGE("Failed to create window");
         return;
     }
-    
-    // 初始化GDI缓冲区
-    HDC hdc = GetDC(hwnd);
-    for (auto& buffer : buffers) {
-        buffer.dc = CreateCompatibleDC(hdc);
-        BITMAPINFO bmi = {};
-        bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-        bmi.bmiHeader.biWidth = config.width;
-        bmi.bmiHeader.biHeight = -config.height; // 负值表示从上到下
-        bmi.bmiHeader.biPlanes = 1;
-        bmi.bmiHeader.biBitCount = 32;
-        bmi.bmiHeader.biCompression = BI_RGB;
-        
-        buffer.bitmap = CreateDIBSection(buffer.dc, &bmi, DIB_RGB_COLORS,
-                                       &buffer.bits, NULL, 0);
-        SelectObject(buffer.dc, buffer.bitmap);
-    }
-    ReleaseDC(hwnd, hdc);
     
     // 通知窗口创建完成
     {

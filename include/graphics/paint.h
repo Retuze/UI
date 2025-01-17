@@ -1,5 +1,6 @@
 #pragma once
 #include "core/types.h"
+#include "graphics/pixel.h"
 #include <string>
 
 class Paint {

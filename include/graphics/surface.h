@@ -1,9 +1,11 @@
 #pragma once
 #include <memory>
 #include "core/types.h"
+#include "graphics/pixel.h"
+#include "graphics/bitmap.h"
 #include "core/event.h"
 
-// Surface缓冲区配置
+// Surface配置
 struct SurfaceConfig {
     int width;                      // 宽度
     int height;                     // 高度
@@ -22,9 +24,9 @@ public:
     virtual void destroy() = 0;
     
     // 缓冲区操作
-    virtual void* dequeueBuffer() = 0;     // 获取空闲缓冲区
-    virtual bool queueBuffer() = 0;        // 提交渲染完成的缓冲区
-    virtual void present() = 0;            // 显示队列中最早的缓冲区
+    virtual Bitmap* lockBuffer() = 0;     // 锁定并获取当前缓冲区
+    virtual void unlockBuffer() = 0;      // 解锁当前缓冲区
+    virtual void present() = 0;           // 显示当前缓冲区
     
     // 显示控制
     virtual void waitVSync() = 0;          // 等待垂直同步信号
@@ -36,6 +38,8 @@ public:
     virtual PixelFormat getPixelFormat() const = 0;
     virtual int getBufferCount() const = 0;
     virtual bool isVSyncEnabled() const = 0;
+    virtual PixelLayout getPixelLayout() const = 0;
+    virtual BufferLayout getBufferLayout() const = 0;
     
     // 事件处理
     virtual bool pollEvent(Event& event) = 0;

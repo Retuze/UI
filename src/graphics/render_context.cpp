@@ -2,322 +2,201 @@
 #include "graphics/render_context.h"
 #include "core/logger.h"
 #include "core/types.h"
-#include "graphics/font_manager.h"
 #include "graphics/surface.h"
-#include "graphics/pixel_writer.h"
+#include "graphics/pixel.h"
 
 LOG_TAG("RenderContext");
 
 // 2. 构造和初始化
 RenderContext::RenderContext() = default;
-
 RenderContext::~RenderContext() = default;
 
-bool RenderContext::initialize(int width, int height)
-{
-  surface = Surface::create(SurfaceConfig{width, height, PixelFormat::BGRA8888LE, 3, false});
-  if (!surface || !surface->initialize()) {
-    return false;
-  }
-  
-  // 创建对应的 PixelWriter
-  pixelWriter = PixelWriter::create(surface->getPixelFormat());
-  return true;
+void RenderContext::beginFrame(Surface* surface) {
+    if (!surface) {
+        LOGE("beginFrame with null surface");
+        return;
+    }
+    
+    currentSurface = surface;
+    // 获取绘制缓冲区
+    currentBitmap = currentSurface->lockBuffer();
+    if (!currentBitmap) {
+        LOGE("Failed to lock buffer");
+        currentSurface = nullptr;
+        return;
+    }
+    
+    // 初始化默认状态
+    currentState = State{};
+    currentState.clipRect = Rect(0, 0, surface->getWidth(), surface->getHeight());
+    stateStack = std::stack<State>();
+}
+
+void RenderContext::endFrame() {
+    if (!currentSurface) {
+        return;
+    }
+    
+    currentSurface->unlockBuffer();
+    currentSurface->present();
+    currentSurface = nullptr;
+    currentBitmap = nullptr;
 }
 
 // 3. 状态管理
-void RenderContext::save()
-{
-  if (clipStack.empty()) {
-    clipStack.push_back(Rect(0, 0, surface->getWidth(), surface->getHeight()));
-  } else {
-    clipStack.push_back(clipStack.back());
-  }
+void RenderContext::save() {
+    stateStack.push(currentState);
 }
 
-void RenderContext::restore()
-{
-  if (!clipStack.empty()) {
-    clipStack.pop_back();
-  }
-}
-
-void RenderContext::clipRect(const Rect& rect)
-{
-  if (!clipStack.empty()) {
-    Rect current = clipStack.back();
-    clipStack.back() = current.intersect(rect);
-  } else {
-    clipStack.push_back(rect);
-  }
-}
-
-// 4. 基础绘制操作
-void RenderContext::clear(Color color)
-{
-  if (!surface || !pixelWriter)
-    return;
-
-  void* pixels = surface->dequeueBuffer();
-  if (!pixels)
-    return;
-
-  // 使用 PixelWriter 填充像素
-  auto* dst = static_cast<uint8_t*>(pixels);
-  int width = surface->getWidth();
-  int height = surface->getHeight();
-  int bytesPerPixel = pixelWriter->getBytesPerPixel();
-  
-  for (int y = 0; y < height; ++y) {
-    for (int x = 0; x < width; ++x) {
-      pixelWriter->writePixel(dst + (y * width + x) * bytesPerPixel, color);
+void RenderContext::restore() {
+    if (!stateStack.empty()) {
+        currentState = stateStack.top();
+        stateStack.pop();
     }
-  }
-
-  surface->queueBuffer();
 }
 
-void RenderContext::drawRect(const Rect& rect, const Paint& paint)
-{
-    if (!surface || !pixelWriter)
-        return;
+void RenderContext::clipRect(const Rect& rect) {
+    currentState.clipRect = currentState.clipRect.intersect(rect);
+}
 
-    // 应用裁剪
-    Rect clipRect = rect;
-    if (!clipStack.empty()) {
-        clipRect = clipRect.intersect(clipStack.back());
-        if (clipRect.isEmpty())
-            return;
+bool RenderContext::checkSurface() const {
+    if (!currentSurface) {
+        LOGE("No surface available for drawing");
+        return false;
     }
+    return true;
+}
 
-    // 获取缓冲区
-    void* pixels = surface->dequeueBuffer();
-    if (!pixels)
-        return;
+// 变换操作
+void RenderContext::translate(float dx, float dy) {
+    currentState.transform = currentState.transform * Matrix::makeTranslate(dx, dy);
+}
 
-    // 使用 PixelWriter 绘制矩形
-    auto* dst = static_cast<uint8_t*>(pixels);
-    int width = surface->getWidth();
-    int bytesPerPixel = pixelWriter->getBytesPerPixel();
+void RenderContext::rotate(float degrees) {
+    currentState.transform = currentState.transform * Matrix::makeRotate(degrees);
+}
+
+void RenderContext::scale(float sx, float sy) {
+    currentState.transform = currentState.transform * Matrix::makeScale(sx, sy);
+}
+
+void RenderContext::setMatrix(const Matrix& matrix) {
+    currentState.transform = matrix;
+}
+
+// 绘制状态控制
+void RenderContext::setAlpha(float alpha) {
+    currentState.alpha = alpha;
+}
+
+void RenderContext::setBlendMode(BlendMode mode) {
+    currentState.blendMode = mode;
+}
+
+void RenderContext::setAntiAlias(bool enabled) {
+    currentState.antiAlias = enabled;
+}
+
+// 基础绘制操作
+void RenderContext::clear(Color color) {
+    if (!checkSurface()) return;
     
+    int width = currentBitmap->getWidth();
+    int height = currentBitmap->getHeight();
+    
+    // 遍历每个像素进行设置
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            currentBitmap->setPixel(x, y, color);
+        }
+    }
+}
+
+void RenderContext::drawRect(const Rect& rect, const Paint& paint) {
+    if (!checkSurface()) return;
+    
+    // 应用变换
+    Rect transformedRect = currentState.transform.mapRect(rect);
+    
+    // 应用裁剪
+    Rect clipRect = transformedRect.intersect(currentState.clipRect);
+    if (clipRect.isEmpty()) return;
+    
+    Color color = paint.getColor();
+    color.a = static_cast<uint8_t>(color.a * currentState.alpha);
+    
+    // 遍历裁剪区域内的像素
     for (int y = clipRect.y; y < clipRect.y + clipRect.height; ++y) {
         for (int x = clipRect.x; x < clipRect.x + clipRect.width; ++x) {
-            pixelWriter->writePixel(dst + (y * width + x) * bytesPerPixel, 
-                                  paint.getColor());
+            if (currentState.blendMode == BlendMode::SrcOver) {
+                // 读取目标像素
+                Color dstColor = currentBitmap->getPixel(x, y);
+                // 混合颜色
+                Color blended = blendColors(color, dstColor, currentState.blendMode);
+                currentBitmap->setPixel(x, y, blended);
+            } else {
+                currentBitmap->setPixel(x, y, color);
+            }
         }
     }
-
-    surface->queueBuffer();
 }
 
-// 6. 文本渲染
-void RenderContext::drawText(const std::string& text, float x, float y, const Paint& paint)
-{
-    if (!surface || !pixelWriter) {
-        LOGE("RenderContext::drawText - No surface or pixel writer available!");
-        return;
-    }
-
-    auto& fontManager = FontManager::getInstance();
+void RenderContext::fillRect(const Rect& rect, const Color& color) {
+    if (!checkSurface()) return;
     
-    Rect clipRect;
-    if (!clipStack.empty()) {
-        clipRect = clipStack.back();
-    } else {
-        clipRect = Rect(0, 0, surface->getWidth(), surface->getHeight());
-    }
-
-    void* pixels = surface->dequeueBuffer();
-    if (!pixels)
-        return;
-
-    // TODO: 渲染文本
-    // fontManager.renderText(pixels, surface->getWidth(), surface->getHeight(),
-    //                      pixelWriter.get(), text, x, y, paint.getColor(), clipRect);
-
-    surface->queueBuffer();
-}
-
-void RenderContext::drawRoundRect(const Rect& rect, float radius, const Paint& paint)
-{
-    if (!surface || !pixelWriter)
-        return;
-
+    // 应用变换
+    Rect transformedRect = currentState.transform.mapRect(rect);
+    
     // 应用裁剪
-    Rect clipRect = rect;
-    if (!clipStack.empty()) {
-        clipRect = clipRect.intersect(clipStack.back());
-        if (clipRect.isEmpty())
-            return;
-    }
-
-    // 获取缓冲区
-    void* pixels = surface->dequeueBuffer();
-    if (!pixels)
-        return;
-
-    auto* dst = static_cast<uint8_t*>(pixels);
-    int width = surface->getWidth();
-    int bytesPerPixel = pixelWriter->getBytesPerPixel();
-    Color color = paint.getColor();
-
-    int r = static_cast<int>(radius);
+    Rect clipRect = transformedRect.intersect(currentState.clipRect);
+    if (clipRect.isEmpty()) return;
+    
+    // 调整alpha
+    Color finalColor = color;
+    finalColor.a = static_cast<uint8_t>(color.a * currentState.alpha);
+    
+    // 按行批量填充
     for (int y = clipRect.y; y < clipRect.y + clipRect.height; ++y) {
-        for (int x = clipRect.x; x < clipRect.x + clipRect.width; ++x) {
-            // 检查点是否在圆角矩形内
-            bool inside = true;
-            
-            // 左上角
-            if (x < rect.x + r && y < rect.y + r) {
-                inside = std::pow(x - (rect.x + r), 2) + 
-                        std::pow(y - (rect.y + r), 2) <= r * r;
-            }
-            // 右上角
-            else if (x >= rect.x + rect.width - r && y < rect.y + r) {
-                inside = std::pow(x - (rect.x + rect.width - r), 2) + 
-                        std::pow(y - (rect.y + r), 2) <= r * r;
-            }
-            // 左下角
-            else if (x < rect.x + r && y >= rect.y + rect.height - r) {
-                inside = std::pow(x - (rect.x + r), 2) + 
-                        std::pow(y - (rect.y + rect.height - r), 2) <= r * r;
-            }
-            // 右下角
-            else if (x >= rect.x + rect.width - r && y >= rect.y + rect.height - r) {
-                inside = std::pow(x - (rect.x + rect.width - r), 2) + 
-                        std::pow(y - (rect.y + rect.height - r), 2) <= r * r;
-            }
-
-            if (inside) {
-                pixelWriter->writePixel(dst + (y * width + x) * bytesPerPixel, color);
-            }
-        }
-    }
-
-    surface->queueBuffer();
-}
-
-void RenderContext::drawLine(float x1, float y1, float x2, float y2, const Paint& paint)
-{
-    if (!surface || !pixelWriter)
-        return;
-
-    // 应用裁剪
-    Rect clipRect;
-    if (!clipStack.empty()) {
-        clipRect = clipStack.back();
-    } else {
-        clipRect = Rect(0, 0, surface->getWidth(), surface->getHeight());
-    }
-
-    // 获取缓冲区
-    void* pixels = surface->dequeueBuffer();
-    if (!pixels)
-        return;
-
-    auto* dst = static_cast<uint8_t*>(pixels);
-    int width = surface->getWidth();
-    int bytesPerPixel = pixelWriter->getBytesPerPixel();
-    Color color = paint.getColor();
-
-    // Bresenham直线算法
-    int dx = static_cast<int>(std::abs(x2 - x1));
-    int dy = static_cast<int>(std::abs(y2 - y1));
-    int sx = x1 < x2 ? 1 : -1;
-    int sy = y1 < y2 ? 1 : -1;
-    int err = dx - dy;
-
-    int x = static_cast<int>(x1);
-    int y = static_cast<int>(y1);
-
-    while (true) {
-        if (x >= clipRect.x && x < clipRect.x + clipRect.width &&
-            y >= clipRect.y && y < clipRect.y + clipRect.height) {
-            pixelWriter->writePixel(dst + (y * width + x) * bytesPerPixel, color);
-        }
-
-        if (x == static_cast<int>(x2) && y == static_cast<int>(y2))
-            break;
-
-        int e2 = 2 * err;
-        if (e2 > -dy) {
-            err -= dy;
-            x += sx;
-        }
-        if (e2 < dx) {
-            err += dx;
-            y += sy;
-        }
-    }
-
-    surface->queueBuffer();
-}
-
-void RenderContext::drawCircle(float x, float y, float radius, const Paint& paint)
-{
-    if (!surface || !pixelWriter)
-        return;
-
-    // 应用裁剪
-    Rect clipRect;
-    if (!clipStack.empty()) {
-        clipRect = clipStack.back();
-    } else {
-        clipRect = Rect(0, 0, surface->getWidth(), surface->getHeight());
-    }
-
-    // 获取缓冲区
-    void* pixels = surface->dequeueBuffer();
-    if (!pixels)
-        return;
-
-    auto* dst = static_cast<uint8_t*>(pixels);
-    int width = surface->getWidth();
-    int bytesPerPixel = pixelWriter->getBytesPerPixel();
-    Color color = paint.getColor();
-
-    // 中点圆算法
-    int cx = static_cast<int>(x);
-    int cy = static_cast<int>(y);
-    int r = static_cast<int>(radius);
-    int px = 0;
-    int py = r;
-    int d = 1 - r;
-
-    auto drawCirclePoints = [&](int x, int y) {
-        const int points[8][2] = {
-            {cx + x, cy + y}, {cx - x, cy + y},
-            {cx + x, cy - y}, {cx - x, cy - y},
-            {cx + y, cy + x}, {cx - y, cy + x},
-            {cx + y, cy - x}, {cx - y, cy - x}
-        };
-
-        for (const auto& p : points) {
-            if (p[0] >= clipRect.x && p[0] < clipRect.x + clipRect.width &&
-                p[1] >= clipRect.y && p[1] < clipRect.y + clipRect.height) {
-                pixelWriter->writePixel(dst + (p[1] * width + p[0]) * bytesPerPixel, color);
-            }
-        }
-    };
-
-    while (px <= py) {
-        drawCirclePoints(px, py);
-        px++;
-        if (d < 0) {
-            d += 2 * px + 1;
+        if (currentState.blendMode == BlendMode::SrcOver) {
+            blendHLine(clipRect.x, y, clipRect.width, finalColor);
         } else {
-            py--;
-            d += 2 * (px - py) + 1;
+            fillHLine(clipRect.x, y, clipRect.width, finalColor);
         }
     }
-
-    surface->queueBuffer();
 }
 
-// 7. 缓冲区操作
-void RenderContext::present()
-{
-    if (surface) {
-        surface->present();
+void RenderContext::fillHLine(int x, int y, int width, const Color& color) {
+    // 使用 memset 或 std::fill 进行快速填充
+    if (currentBitmap->getFormat().baseFormat == BasePixelFormat::RGBA8888 ||
+        currentBitmap->getFormat().baseFormat == BasePixelFormat::BGRA8888) {
+        // 获取行起始位置
+        uint32_t* row = reinterpret_cast<uint32_t*>(
+            currentBitmap->getPixels() + 
+            y * currentBitmap->getStride() + 
+            x * currentBitmap->getBytesPerPixel()
+        );
+        
+        // 准备颜色值
+        uint32_t packed = (currentBitmap->getFormat().baseFormat == BasePixelFormat::RGBA8888) 
+            ? color.toRGBA8888() 
+            : color.toBGRA8888();
+            
+        // 快速填充
+        std::fill_n(row, width, packed);
+    } else {
+        // 对于其他格式，逐像素设置
+        for (int i = 0; i < width; ++i) {
+            currentBitmap->setPixel(x + i, y, color);
+        }
+    }
+}
+
+void RenderContext::blendHLine(int x, int y, int width, const Color& src) {
+    // 对于需要混合的情况，我们可以使用SIMD优化
+    // 这里展示基础实现
+    for (int i = 0; i < width; ++i) {
+        Color dst = currentBitmap->getPixel(x + i, y);
+        Color blended = blendColors(src, dst, currentState.blendMode);
+        currentBitmap->setPixel(x + i, y, blended);
     }
 }

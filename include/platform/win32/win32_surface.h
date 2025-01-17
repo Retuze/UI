@@ -5,6 +5,7 @@
 #include <queue>
 #include <mutex>
 #include <windows.h>
+#include <memory>
 
 class Win32Surface : public Surface {
 public:
@@ -16,8 +17,8 @@ public:
     void destroy() override;
     
     // 缓冲区操作
-    void* dequeueBuffer() override;
-    bool queueBuffer() override;
+    Bitmap* lockBuffer() override;
+    void unlockBuffer() override;
     void present() override;
     
     // 显示控制
@@ -49,9 +50,9 @@ private:
     
     // GDI缓冲区
     struct Buffer {
+        std::unique_ptr<Bitmap> bitmap;
         HDC dc = nullptr;
-        HBITMAP bitmap = nullptr;
-        void* bits = nullptr;
+        HBITMAP winBitmap = nullptr;
         bool inUse = false;
     };
     std::vector<Buffer> buffers;

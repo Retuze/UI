@@ -27,7 +27,7 @@ void ViewRoot::performTraversals() {
         LOGE("HostView is null in performTraversals");
         return;
     }
-    if (!renderContext) {
+    if (!mainSurface) {
         LOGE("RenderContext is null in performTraversals");
         return;
     }
@@ -48,8 +48,8 @@ void ViewRoot::performTraversals() {
 }
 
 void ViewRoot::performMeasure() {
-    int width = renderContext->getWidth();
-    int height = renderContext->getHeight();
+    int width = mainSurface->getWidth();
+    int height = mainSurface->getHeight();
     
     LOGI("ViewRoot measure with window size: %d x %d", width, height);
     
@@ -71,20 +71,20 @@ void ViewRoot::performLayout() {
 }
 
 void ViewRoot::performDraw() {
-    if (!renderContext) {
+    if (!mainSurface) {
         return;
     }
     
     // LOGI("Performing draw");
     
     // 清空背景为白色
-    renderContext->clear();
+    mainSurface->clear();
     
     // 绘制视图树
-    hostView->draw(*renderContext);
+    hostView->draw(*mainSurface);
     
     // 提交绘制结果
-    renderContext->present();
+    mainSurface->present();
 }
 
 void ViewRoot::invalidate() {
