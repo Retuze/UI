@@ -5,34 +5,26 @@
 
 LOG_TAG("Activity");
 
-Activity::Activity() {
-    // Remove unnecessary rootLayout initialization
-}
+Activity::Activity() : state(ActivityState::Created) {}
 
 void Activity::setContentView(View* view) {
-    setContentView(view, LayoutParams(LayoutParams::MATCH_PARENT, LayoutParams::MATCH_PARENT));
-}
-
-void Activity::setContentView(View* view, const LayoutParams& params) {
     if (contentView) {
         delete contentView;
     }
     contentView = view;
-    if (view) {
-        view->setLayoutParams(params);
-        // Get the window manager and add the view
-        if (auto* wm = Application::getInstance().getWindowManager()) {
-            wm->addView(view, params);
-        }
+}
+
+void Activity::setContentView(View* view, const LayoutParams& params) {
+    setContentView(view);
+    if (contentView) {
+        contentView->setLayoutParams(params);
     }
 }
 
-bool Activity::isStarted() const {
-    return state >= ActivityState::Started;
-}
-
-bool Activity::isResumed() const {
-    return state == ActivityState::Resumed;
+void Activity::finish() {
+    if (Application* app = getApplication()) {
+        app->finishActivity(this);
+    }
 }
 
 void Activity::dispatchCreate() {
@@ -62,25 +54,20 @@ void Activity::dispatchStop() {
 
 void Activity::dispatchDestroy() {
     state = ActivityState::Destroyed;
-    
-    // 1. 先从窗口管理器移除视图
-    if (auto* wm = Application::getInstance().getWindowManager()) {
-        if (!contentView) {
-            LOGE("ContentView is null in dispatchDestroy");
-        } else {
-            wm->removeView(contentView);
-            // 2. 等待视图从渲染树中完全移除
-            std::this_thread::sleep_for(std::chrono::milliseconds(16));
-        }
-    }
-    
-    // 3. 调用销毁回调
     onDestroy();
-    
-    // 4. 最后删除视图
-    if (contentView) {
-        delete contentView;
-        contentView = nullptr;
+}
+
+void Activity::dispatchSaveInstanceState() {
+    if (!isStateSaved) {
+        onSaveInstanceState();
+        isStateSaved = true;
+    }
+}
+
+void Activity::dispatchRestoreInstanceState() {
+    if (isStateSaved) {
+        onRestoreInstanceState();
+        isStateSaved = false;
     }
 }
 

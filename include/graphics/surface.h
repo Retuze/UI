@@ -39,9 +39,6 @@ public:
     virtual int getBufferCount() const = 0;
     virtual bool isVSyncEnabled() const = 0;
     
-    // 事件处理
-    virtual bool pollEvent(Event& event) = 0;
-    
     // 工厂方法
     static std::unique_ptr<Surface> create(const SurfaceConfig& config);
 }; 

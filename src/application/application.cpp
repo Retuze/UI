@@ -66,67 +66,138 @@ void Application::onTerminate() {
     cleanupResources();
 }
 
-void Application::startActivity(Activity* activity) {
-    if (!activity) return;
+void Application::startActivity(const Intent& intent) {
+    Activity* newActivity = createActivityInstance(intent.activityName);
+    if (!newActivity) return;
     
-    // 暂停当前Activity
-    if (currentActivity) {
-        currentActivity->dispatchPause();
-        currentActivity->dispatchStop();
-    }
+    // 设置传递的数据
+    newActivity->extras = intent.extras;
     
-    // 添加新Activity
-    activities.push_back(activity);
-    currentActivity = activity;
+    // 处理Activity切换
+    Activity* currentActivity = getCurrentActivity();
+    handleActivityTransition(currentActivity, newActivity);
     
-    // 启动新Activity
-    activity->dispatchCreate();
-    activity->dispatchStart();
-    activity->dispatchResume();
+    // 将新Activity压入栈中
+    activityStack.push(newActivity);
+    
+    // 初始化新Activity
+    newActivity->dispatchCreate();
+    newActivity->dispatchStart();
+    newActivity->dispatchResume();
+}
+
+void Application::startActivityForResult(Activity* sourceActivity, const Intent& intent, int requestCode) {
+    Activity* newActivity = createActivityInstance(intent.activityName);
+    if (!newActivity) return;
+    
+    newActivity->extras = intent.extras;
+    handleActivityTransition(sourceActivity, newActivity);
+    activityStack.push(newActivity);
+    
+    // 记录请求信息，以便返回时处理
+    pendingResults[newActivity] = {sourceActivity, requestCode};
+    
+    newActivity->dispatchCreate();
+    newActivity->dispatchStart();
+    newActivity->dispatchResume();
 }
 
 void Application::finishActivity(Activity* activity) {
-    if (!activity) return;
+    if (!activity || activityStack.empty()) return;
     
-    // 查找Activity
-    auto it = std::find(activities.begin(), activities.end(), activity);
-    if (it == activities.end()) return;
+    activity->dispatchPause();
+    activity->dispatchStop();
+    activity->dispatchDestroy();
     
-    // 如果是当前Activity,需要先暂停
-    if (activity == currentActivity) {
-        activity->dispatchPause();
-        activity->dispatchStop();
-        currentActivity = nullptr;
-        
-        // 恢复上一个Activity
-        if (activities.size() > 1) {
-            currentActivity = activities[activities.size() - 2];
-            currentActivity->dispatchStart();
-            currentActivity->dispatchResume();
-        }
+    activityStack.pop();
+    
+    // 恢复上一个Activity
+    if (!activityStack.empty()) {
+        Activity* previousActivity = activityStack.top();
+        previousActivity->dispatchStart();
+        previousActivity->dispatchResume();
     }
     
-    // 销毁Activity
-    activity->dispatchDestroy();
-    activities.erase(it);
     delete activity;
 }
 
+void Application::finishActivityWithResult(Activity* activity, int resultCode, const std::map<std::string, std::any>& resultData) {
+    if (!activity) return;
+    
+    // 查找是否有待处理的结果
+    auto it = pendingResults.find(activity);
+    if (it != pendingResults.end()) {
+        Activity* sourceActivity = it->second.sourceActivity;
+        int requestCode = it->second.requestCode;
+        
+        // 传递结果给源Activity
+        deliverActivityResult(sourceActivity, requestCode, resultCode, resultData);
+        pendingResults.erase(it);
+    }
+    
+    finishActivity(activity);
+}
+
+void Application::moveToBackground() {
+    if (appState != AppState::Running) return;
+    
+    appState = AppState::Background;
+    lastBackgroundTime = std::chrono::steady_clock::now();
+    
+    // 暂停当前Activity
+    if (Activity* currentActivity = getCurrentActivity()) {
+        currentActivity->dispatchPause();
+        currentActivity->dispatchStop();
+        currentActivity->dispatchSaveInstanceState();
+    }
+    
+    pauseNonEssentialTasks();
+    releaseNonEssentialResources();
+}
+
+void Application::moveToForeground() {
+    if (appState != AppState::Background) return;
+    
+    appState = AppState::Running;
+    restoreResources();
+    resumeNonEssentialTasks();
+    
+    // 恢复当前Activity
+    if (Activity* currentActivity = getCurrentActivity()) {
+        currentActivity->dispatchRestoreInstanceState();
+        currentActivity->dispatchStart();
+        currentActivity->dispatchResume();
+    }
+}
+
+Activity* Application::createActivityInstance(const std::string& activityName) {
+    // 这里需要一个Activity工厂来创建具体的Activity实例
+    // 可以通过注册表或反射机制实现
+    return nullptr; // 具体实现需要根据你的Activity注册机制来完成
+}
+
+void Application::handleActivityTransition(Activity* from, Activity* to) {
+    if (from) {
+        from->dispatchPause();
+        from->dispatchStop();
+        from->dispatchSaveInstanceState();
+    }
+}
+
+void Application::deliverActivityResult(Activity* target, int requestCode, int resultCode, const std::map<std::string, std::any>& data) {
+    if (target) {
+        target->onActivityResult(requestCode, resultCode, data);
+    }
+}
+
 bool Application::pollEvent(Event& event) {
-    if (!renderContext) {
-        LOGE("RenderContext is null in pollEvent");
-        return false;
-    }
-    if (!mainSurface) {
-        LOGE("RenderContext surface is null in pollEvent");
-        return false;
-    }
-    return mainSurface->pollEvent(event);
+    // TODO: 使用新的事件系统处理事件
+    return true;
 }
 
 void Application::dispatchEvent(const Event& event) {
     // 如果当前Activity存在，将事件分发给它的内容视图
-    if (currentActivity) {
+    if (Activity* currentActivity = getCurrentActivity()) {
         if (View* contentView = currentActivity->getContentView()) {
             contentView->dispatchEvent(event);
         }
@@ -183,18 +254,18 @@ void Application::onSystemReady() {
 
 void Application::cleanupActivities() {
     // 先暂停当前Activity
-    if (currentActivity) {
+    if (Activity* currentActivity = getCurrentActivity()) {
         currentActivity->dispatchPause();
         currentActivity->dispatchStop();
     }
     
     // 销毁所有Activity
-    for (auto* activity : activities) {
+    while (!activityStack.empty()) {
+        Activity* activity = activityStack.top();
+        activityStack.pop();
         activity->dispatchDestroy();
         delete activity;
     }
-    activities.clear();
-    currentActivity = nullptr;
 }
 
 void Application::cleanupRenderSystem() {
