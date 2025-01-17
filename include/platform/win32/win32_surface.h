@@ -33,9 +33,6 @@ public:
     int getBufferCount() const override { return config.bufferCount; }
     bool isVSyncEnabled() const override { return config.vsyncEnabled; }
     
-    // 事件处理
-    bool pollEvent(Event& event) override;
-    
     // Win32特有方法
     HWND getHWND() const { return hwnd; }
     
@@ -48,6 +45,9 @@ private:
     HWND hwnd = nullptr;
     std::mutex windowMutex;
     std::condition_variable windowCreated;
+
+    void resizeBuffers(int width, int height);
+    std::mutex resizeMutex;
     
     // GDI缓冲区
     struct Buffer {

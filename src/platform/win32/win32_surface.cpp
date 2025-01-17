@@ -1,4 +1,6 @@
 #include "platform/win32/win32_surface.h"
+#include "platform/event_translator.h"
+#include "core/event_dispatcher.h"
 #include "core/logger.h"
 #include <stdexcept>
 
@@ -218,16 +220,43 @@ LRESULT CALLBACK Win32Surface::WndProc(HWND hwnd, UINT msg,
             GetWindowLongPtr(hwnd, GWLP_USERDATA));
     }
     
-    switch (msg) {
-        case WM_DESTROY:
-            PostQuitMessage(0);
-            return 0;
-            
-        case WM_QUIT: {
-            Event quitEvent;
-            quitEvent.type = EventType::Quit;
-            // Store the quit event or handle it appropriately
-            return 0;
+    // 处理窗口消息并转换为标准事件
+    if (surface) {
+        Event event;
+        static Win32EventTranslator translator;
+        
+        switch (msg) {
+            case WM_DESTROY:
+                PostQuitMessage(0);
+                return 0;
+                
+            case WM_SIZE: 
+                if (wParam != SIZE_MINIMIZED) {
+                    int width = LOWORD(lParam);
+                    int height = HIWORD(lParam);
+                    surface->resizeBuffers(width, height);
+                }
+                
+            case WM_MOUSEMOVE:
+            case WM_LBUTTONDOWN:
+            case WM_LBUTTONUP:
+            case WM_RBUTTONDOWN:
+            case WM_RBUTTONUP:
+            case WM_MBUTTONDOWN:
+            case WM_MBUTTONUP:
+            case WM_MOUSEWHEEL:
+            case WM_KEYDOWN:
+            case WM_KEYUP:
+            case WM_CHAR:
+            case WM_SETFOCUS:
+            case WM_KILLFOCUS: {
+                // 统一的事件转换和分发逻辑
+                MSG winMsg = {hwnd, msg, wParam, lParam};
+                if (translator.translateNativeEvent(&winMsg, event)) {
+                    EventDispatcher::getInstance().dispatchEvent(event);
+                }
+                break;
+            }
         }
     }
     
@@ -266,49 +295,62 @@ void Win32Surface::setVSyncEnabled(bool enabled) {
     config.vsyncEnabled = enabled;
 }
 
-bool Win32Surface::pollEvent(Event& event) {
-    MSG msg;
-    if (PeekMessage(&msg, hwnd, 0, 0, PM_REMOVE)) {
-        TranslateMessage(&msg);
-        DispatchMessage(&msg);
-        
-        // 将Windows消息转换为我们的Event类型
-        switch (msg.message) {
-            case WM_MOUSEMOVE:
-                event.type = Event::Type::MouseMove;
-                event.x = GET_X_LPARAM(msg.lParam);
-                event.y = GET_Y_LPARAM(msg.lParam);
-                return true;
-                
-            case WM_LBUTTONDOWN:
-                event.type = EventType::MousePress;
-                event.x = GET_X_LPARAM(msg.lParam);
-                event.y = GET_Y_LPARAM(msg.lParam);
-                event.button = Event::Button::Left;
-                return true;
-                
-            case WM_LBUTTONUP:
-                event.type = EventType::MouseRelease;
-                event.x = GET_X_LPARAM(msg.lParam);
-                event.y = GET_Y_LPARAM(msg.lParam);
-                event.button = Event::Button::Left;
-                return true;
-                
-            case WM_KEYDOWN:
-                event.type = Event::Type::KeyDown;
-                event.keyCode = static_cast<int>(msg.wParam);
-                return true;
-                
-            case WM_KEYUP:
-                event.type = Event::Type::KeyUp;
-                event.keyCode = static_cast<int>(msg.wParam);
-                return true;
-                
-            case WM_CHAR:
-                event.type = Event::Type::Char;
-                event.keyChar = static_cast<char>(msg.wParam);
-                return true;
+void Win32Surface::resizeBuffers(int width, int height) {
+    std::lock_guard<std::mutex> lock(resizeMutex);
+    std::lock_guard<std::mutex> bufferLock(bufferMutex);
+
+    // 更新配置
+    config.width = width;
+    config.height = height;
+
+    // 获取DC
+    HDC hdc = GetDC(hwnd);
+
+    // 清理旧缓冲区
+    for (auto& buffer : buffers) {
+        if (buffer.winBitmap) {
+            DeleteObject(buffer.winBitmap);
         }
+        if (buffer.dc) {
+            DeleteDC(buffer.dc);
+        }
+        buffer.bitmap.reset();
     }
-    return false;
+
+    // 创建新缓冲区
+    for (auto& buffer : buffers) {
+        buffer.dc = CreateCompatibleDC(hdc);
+        BITMAPINFO bmi = {};
+        bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+        bmi.bmiHeader.biWidth = width;
+        bmi.bmiHeader.biHeight = -height; // 负值表示从上到下
+        bmi.bmiHeader.biPlanes = 1;
+        bmi.bmiHeader.biBitCount = config.format.getBitsPerPixel();
+        bmi.bmiHeader.biCompression = BI_RGB;
+        
+        void* bits = nullptr;
+        buffer.winBitmap = CreateDIBSection(buffer.dc, &bmi, DIB_RGB_COLORS,
+                                          &bits, NULL, 0);
+        
+        buffer.bitmap = std::make_unique<Bitmap>(
+            width,
+            height,
+            config.format
+        );
+        buffer.bitmap->setPixels(bits);
+        SelectObject(buffer.dc, buffer.winBitmap);
+        buffer.inUse = false;
+    }
+
+    ReleaseDC(hwnd, hdc);
+    
+    // 清空显示队列
+    std::queue<int> empty;
+    std::swap(displayQueue, empty);
+    
+    // 重置当前缓冲区索引
+    currentBuffer = 0;
+    
+    // 通知等待的线程
+    bufferAvailable.notify_all();
 }

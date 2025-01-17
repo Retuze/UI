@@ -1,42 +1,43 @@
 #pragma once
-#include "core/types.h"
+
+#include <cstdint>
 #include <functional>
-#include <vector>
 
+// 事件类型枚举
 enum class EventType {
-    MouseMove,
-    MousePress,
-    MouseRelease,
-    KeyDown,
-    KeyUp,
-    Char,
-    Quit
+    None,
+    // 窗口事件
+    WindowClose,
+    WindowResize,
+    WindowFocus,
+    WindowLostFocus,
+    WindowMoved,
+    
+    // 键盘事件
+    KeyPressed,
+    KeyReleased,
+    KeyTyped,
+    
+    // 鼠标事件
+    MouseButtonPressed,
+    MouseButtonReleased,
+    MouseMoved,
+    MouseScrolled,
+    
+    // 触摸事件
+    TouchBegan,
+    TouchMoved,
+    TouchEnded
 };
 
-struct Event {
+// 基础事件类
+class Event {
 public:
-    using Type = EventType;
+    EventType type = EventType::None;
+    bool handled = false;
     
-    enum class Button {
-        Left,
-        Right,
-        Middle
-    };
-    
-    Type type;
-    int x = 0;
-    int y = 0;
-    Button button;
-    int keyCode = 0;
-    char keyChar = 0;
+    virtual ~Event() = default;
 };
 
-using EventHandler = std::function<bool(const Event&)>;
-
-class EventDispatcher {
-public:
-    void addEventListener(EventType type, EventHandler handler);
-    bool dispatchEvent(const Event& event);
-private:
-    std::vector<std::pair<EventType, EventHandler>> handlers;
-}; 
+// 事件分发器的回调函数类型
+using EventCallback = std::function<void(Event&)>;
