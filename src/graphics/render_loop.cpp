@@ -1,4 +1,6 @@
 #include "graphics/render_loop.h"
+#include "core/choreographer.h"
+#include "application/application.h"
 #include <chrono>
 #include <cassert>
 
@@ -21,6 +23,19 @@ void RenderLoop::start() {
         return;
     }
     
+    auto& choreographer = Choreographer::getInstance();
+    
+    choreographer.setSurface(surface);
+    
+    // 注册渲染回调
+    choreographer.postFrameCallback([this](int64_t frameTimeNanos) {
+        // 执行具体的渲染逻辑
+        Application::getInstance().render();
+    });
+    
+    // 启动 Choreographer
+    choreographer.start();
+
     isRunning = true;
     renderThread = std::thread(&RenderLoop::run, this);
     renderThreadId = renderThread.get_id();
@@ -56,32 +71,29 @@ bool RenderLoop::isOnRenderThread() const {
 }
 
 void RenderLoop::pauseRendering() {
-    post([this]() {
-        // TODO: 实现渲染暂停逻辑
-    });
+    isPausedFlag = true;
+    // 其他暂停逻辑
 }
 
 void RenderLoop::resumeRendering() {
-    post([this]() {
-        // TODO: 实现渲染恢复逻辑
-    });
+    isPausedFlag = false;
+    // 其他恢复逻辑
+}
+
+bool RenderLoop::isPaused() const {
+    return isPausedFlag;
 }
 
 void RenderLoop::run() {
     // 在渲染线程中创建 looper
     Looper::prepare();
-    looper = std::unique_ptr<Looper>(Looper::getForThread());
+    looper = std::unique_ptr<Looper>(Looper::getCurrentThreadLooper());
     taskHandler = std::make_unique<Handler>(looper.get());
     renderThreadId = std::this_thread::get_id();
 
     while (isRunning) {
         looper->loop();
-        
-        // 在这里可以添加渲染相关的处理逻辑
-        // 比如处理渲染队列、更新画面等
-        
-        // 控制帧率
-        std::this_thread::sleep_for(std::chrono::milliseconds(16)); // ~60fps
+        // TODO: 添加渲染相关的处理逻辑--通过Choreographer
     }
 
     // 清理资源

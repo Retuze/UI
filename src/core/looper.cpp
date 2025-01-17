@@ -2,7 +2,7 @@
 
 thread_local Looper* Looper::threadLooper = nullptr;
 
-Looper* Looper::getForThread() {
+Looper* Looper::getCurrentThreadLooper() {
     return threadLooper;
 }
 
@@ -13,14 +13,14 @@ void Looper::prepare() {
 }
 
 void Looper::loop() {
-    auto looper = getForThread();
+    auto looper = getCurrentThreadLooper();
     if (looper && looper->queue) {
         looper->queue->processNextMessage();
     }
 }
 
 void Looper::quit() {
-    auto looper = getForThread();
+    auto looper = getCurrentThreadLooper();
     if (looper && looper->queue) {
         looper->queue->quit();
     }

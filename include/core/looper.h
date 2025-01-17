@@ -4,7 +4,7 @@
 
 class Looper {
 public:
-    static Looper* getForThread();
+    static Looper* getCurrentThreadLooper();
     static void prepare();
     static void loop();
     static void quit();

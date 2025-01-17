@@ -1,85 +1,85 @@
 #include "core/choreographer.h"
-#include "graphics/ui_thread.h"
-#include "core/logger.h"
-
-LOG_TAG("Choreographer");
-
-Choreographer::Choreographer() {
-    // 检查DWM是否可用
-    BOOL enabled = FALSE;
-    dwmSupported = SUCCEEDED(DwmIsCompositionEnabled(&enabled)) && enabled;
-    LOGI("DWM composition %s", dwmSupported ? "enabled" : "disabled");
-}
+#include "graphics/surface.h"
+#include <chrono>
+#include <thread>
+#include <stdexcept>
+#include <mutex>
 
 Choreographer& Choreographer::getInstance() {
     static Choreographer instance;
     return instance;
 }
 
-void Choreographer::setFrameCallback(std::function<void(int64_t)> callback) {
-    frameCallback = std::move(callback);
+Choreographer::Choreographer() = default;
+
+void Choreographer::setSurface(Surface* surface) {
+    this->surface = surface;
 }
 
-void Choreographer::start() {
-    if (!running) {
-        running = true;
-        vsyncThread = std::make_unique<std::thread>(&Choreographer::vsyncLoop, this);
+void Choreographer::postFrameCallback(FrameCallback callback) {
+    std::lock_guard<std::mutex> lock(callbackMutex);
+    frameCallbacks.push(std::move(callback));
+}
+
+bool Choreographer::start() {
+    if (running.exchange(true)) {
+        return false;
     }
+    
+    if (!surface) {
+        running = false;
+        return false;
+    }
+    
+    vsyncThread = std::make_unique<std::thread>(&Choreographer::vsyncLoop, this);
+    return true;
 }
 
 void Choreographer::stop() {
-    if (running.load(std::memory_order_acquire)) {
-        LOGI("Choreographer stopping...");
-        frameCallback = nullptr;
-        running.store(false, std::memory_order_release);
-        
+    if (running.exchange(false)) {
         if (vsyncThread && vsyncThread->joinable()) {
             vsyncThread->join();
         }
-        vsyncThread.reset();
-        LOGI("Choreographer stopped successfully");
     }
 }
 
-bool Choreographer::isDwmEnabled() const {
-    if (!dwmSupported) return false;
-    
-    BOOL enabled = FALSE;
-    return SUCCEEDED(DwmIsCompositionEnabled(&enabled)) && enabled;
+void Choreographer::setFallbackFrameRate(int fps) {
+    if (fps < 1 || fps > 240) {
+        throw std::invalid_argument("FPS must be between 1 and 240");
+    }
+    fallbackFrameIntervalNanos = static_cast<int64_t>(1000000000.0 / fps);
 }
 
 void Choreographer::vsyncLoop() {
-    LOGI("VSync loop started");
-    auto lastVsync = std::chrono::steady_clock::now();
+    using namespace std::chrono;
+    bool vsyncEnabled = surface->isVSyncEnabled();
     
-    while (running.load(std::memory_order_acquire)) {
-        if (isDwmEnabled()) {
-            DwmFlush();
+    while (running) {
+        auto frameStart = high_resolution_clock::now();
+        
+        if (vsyncEnabled) {
+            surface->waitVSync();
         } else {
-            auto now = std::chrono::steady_clock::now();
-            auto targetVsync = lastVsync + std::chrono::nanoseconds(frameIntervalNanos);
-            if (targetVsync > now) {
-                std::this_thread::sleep_until(targetVsync);
+            auto frameEnd = high_resolution_clock::now();
+            auto frameDuration = duration_cast<nanoseconds>(frameEnd - frameStart);
+            auto sleepTime = nanoseconds(fallbackFrameIntervalNanos) - frameDuration;
+            
+            if (sleepTime > nanoseconds::zero()) {
+                std::this_thread::sleep_for(sleepTime);
             }
         }
         
-        auto currentVsync = std::chrono::steady_clock::now();
-        lastVsync = currentVsync;
-        
-        // 重要：检查是否还在运行
-        if (!running.load(std::memory_order_acquire)) {
-            break;
-        }
-        
-        // 获取回调的本地副本
-        auto callback = frameCallback;
-        if (callback) {
-            auto frameTimeNanos = std::chrono::duration_cast<std::chrono::nanoseconds>(
-                currentVsync.time_since_epoch()).count();
-            UIThread::getInstance().runOnUiThread([callback, frameTimeNanos]() {
-                callback(frameTimeNanos);
-            });
-        }
+        int64_t frameTimeNanos = duration_cast<nanoseconds>(
+            frameStart.time_since_epoch()).count();
+        executeCallbacks(frameTimeNanos);
     }
-    LOGI("VSync loop exited");
-} 
+}
+
+void Choreographer::executeCallbacks(int64_t frameTimeNanos) {
+    std::lock_guard<std::mutex> lock(callbackMutex);
+    while (!frameCallbacks.empty()) {
+        auto callback = std::move(frameCallbacks.front());
+        frameCallbacks.pop();
+        callback(frameTimeNanos);
+    }
+}

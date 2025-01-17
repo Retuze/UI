@@ -31,6 +31,9 @@ public:
     // 恢复渲染
     void resumeRendering();
     
+    // 检查渲染是否暂停
+    bool isPaused() const;
+    
 private:
     RenderLoop();
     ~RenderLoop();
@@ -42,4 +45,5 @@ private:
     std::thread renderThread;
     std::unique_ptr<Looper> looper;
     std::unique_ptr<Handler> taskHandler;
+    std::atomic<bool> isPausedFlag{false};  // 跟踪渲染暂停状态
 }; 
