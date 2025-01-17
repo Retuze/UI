@@ -4,11 +4,16 @@
 #include "core/types.h"
 #include "graphics/surface.h"
 #include "graphics/pixel.h"
+#include "graphics/text_renderer.h"
+#include "graphics/IFontRenderer.h"
 
 LOG_TAG("RenderContext");
 
 // 2. 构造和初始化
-RenderContext::RenderContext() = default;
+RenderContext::RenderContext() {
+    fontRenderer = createDefaultFontRenderer();
+}
+
 RenderContext::~RenderContext() = default;
 
 void RenderContext::beginFrame(Surface* surface) {
@@ -199,4 +204,28 @@ void RenderContext::blendHLine(int x, int y, int width, const Color& src) {
         Color blended = blendColors(src, dst, currentState.blendMode);
         currentBitmap->setPixel(x + i, y, blended);
     }
+}
+
+void RenderContext::drawText(const std::string& text, float x, float y, const Paint& paint) {
+    if (!checkSurface() || !currentBitmap) {
+        return;
+    }
+
+    // 创建文本样式
+    TextStyle style;
+    style.size = static_cast<int>(paint.getTextSize());
+    style.color = paint.getColor();
+    style.color.a = static_cast<uint8_t>(style.color.a * currentState.alpha);
+
+    // 应用当前变换
+    Point transformed = currentState.transform.mapPoint(Point(x, y));
+
+    // 渲染文本
+    fontRenderer->renderText(
+        currentBitmap,
+        text,
+        style,
+        static_cast<int>(transformed.x),
+        static_cast<int>(transformed.y)
+    );
 }

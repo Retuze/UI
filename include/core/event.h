@@ -4,21 +4,31 @@
 #include <vector>
 
 enum class EventType {
-    None,
+    MouseMove,
     MousePress,
     MouseRelease,
-    MouseMove,
-    KeyPress,
-    KeyRelease,
+    KeyDown,
+    KeyUp,
+    Char,
     Quit
 };
 
 struct Event {
-    EventType type = EventType::None;
+public:
+    using Type = EventType;
+    
+    enum class Button {
+        Left,
+        Right,
+        Middle
+    };
+    
+    Type type;
     int x = 0;
     int y = 0;
-    int key = 0;
-    int button = 0;
+    Button button;
+    int keyCode = 0;
+    char keyChar = 0;
 };
 
 using EventHandler = std::function<bool(const Event&)>;

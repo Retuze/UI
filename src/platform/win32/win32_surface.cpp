@@ -5,6 +5,15 @@
 LOG_TAG("Win32Surface");
 
 Win32Surface::Win32Surface(const SurfaceConfig& config) : config(config) {
+    // 加载DWM库
+    dwmLib = LoadLibraryA("dwmapi.dll");
+    if (dwmLib) {
+        DwmFlush = reinterpret_cast<DwmFlushProc>(
+            GetProcAddress(dwmLib, "DwmFlush"));
+        DwmIsCompositionEnabled = reinterpret_cast<DwmIsCompositionEnabledProc>(
+            GetProcAddress(dwmLib, "DwmIsCompositionEnabled"));
+    }
+    
     // 强制使用BGRA8888格式,这是GDI的标准格式
     this->config.format = PixelFormat::BGRA8888_LE();
     
@@ -14,6 +23,10 @@ Win32Surface::Win32Surface(const SurfaceConfig& config) : config(config) {
 
 Win32Surface::~Win32Surface() {
     destroy();
+    if (dwmLib) {
+        FreeLibrary(dwmLib);
+        dwmLib = nullptr;
+    }
 }
 
 bool Win32Surface::initialize() {
@@ -209,7 +222,93 @@ LRESULT CALLBACK Win32Surface::WndProc(HWND hwnd, UINT msg,
         case WM_DESTROY:
             PostQuitMessage(0);
             return 0;
+            
+        case WM_QUIT: {
+            Event quitEvent;
+            quitEvent.type = EventType::Quit;
+            // Store the quit event or handle it appropriately
+            return 0;
+        }
     }
     
     return DefWindowProc(hwnd, msg, wParam, lParam);
+}
+
+void Win32Surface::waitVSync() {
+    // 使用DWM合成器的VSync同步
+    if (DwmIsCompositionEnabled && DwmFlush) {
+        BOOL enabled = FALSE;
+        if (SUCCEEDED(DwmIsCompositionEnabled(&enabled)) && enabled) {
+            DwmFlush();
+            return;
+        }
+    }
+    
+    // 如果DWM不可用，使用固定帧率同步
+    static const int64_t frameInterval = 16666667; // 60fps in nanoseconds
+    static int64_t lastVSync = 0;
+    
+    int64_t now = std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::steady_clock::now().time_since_epoch()
+    ).count();
+    
+    int64_t nextVSync = lastVSync + frameInterval;
+    if (nextVSync > now) {
+        std::this_thread::sleep_for(std::chrono::nanoseconds(nextVSync - now));
+    }
+    
+    lastVSync = std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::steady_clock::now().time_since_epoch()
+    ).count();
+}
+
+void Win32Surface::setVSyncEnabled(bool enabled) {
+    config.vsyncEnabled = enabled;
+}
+
+bool Win32Surface::pollEvent(Event& event) {
+    MSG msg;
+    if (PeekMessage(&msg, hwnd, 0, 0, PM_REMOVE)) {
+        TranslateMessage(&msg);
+        DispatchMessage(&msg);
+        
+        // 将Windows消息转换为我们的Event类型
+        switch (msg.message) {
+            case WM_MOUSEMOVE:
+                event.type = Event::Type::MouseMove;
+                event.x = GET_X_LPARAM(msg.lParam);
+                event.y = GET_Y_LPARAM(msg.lParam);
+                return true;
+                
+            case WM_LBUTTONDOWN:
+                event.type = EventType::MousePress;
+                event.x = GET_X_LPARAM(msg.lParam);
+                event.y = GET_Y_LPARAM(msg.lParam);
+                event.button = Event::Button::Left;
+                return true;
+                
+            case WM_LBUTTONUP:
+                event.type = EventType::MouseRelease;
+                event.x = GET_X_LPARAM(msg.lParam);
+                event.y = GET_Y_LPARAM(msg.lParam);
+                event.button = Event::Button::Left;
+                return true;
+                
+            case WM_KEYDOWN:
+                event.type = Event::Type::KeyDown;
+                event.keyCode = static_cast<int>(msg.wParam);
+                return true;
+                
+            case WM_KEYUP:
+                event.type = Event::Type::KeyUp;
+                event.keyCode = static_cast<int>(msg.wParam);
+                return true;
+                
+            case WM_CHAR:
+                event.type = Event::Type::Char;
+                event.keyChar = static_cast<char>(msg.wParam);
+                return true;
+        }
+    }
+    return false;
 }

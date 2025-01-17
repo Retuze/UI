@@ -3,7 +3,6 @@
 #include "widgets/text_view.h"
 #include "widgets/button.h"
 #include "view/linear_layout.h"
-#include "graphics/font_manager.h"
 #include "core/logger.h"
 #include <thread>
 #include <chrono>
@@ -54,19 +53,6 @@ public:
 int main() {
     auto& app = Application::getInstance();
     app.onCreate();
-
-    // 初始化字体管理器
-    auto& fontManager = FontManager::getInstance();
-    if (!fontManager.initialize()) {
-        LOGE("Failed to initialize FontManager");
-        return -1;
-    }
-    
-    // 加载字体文件
-    if (!fontManager.loadFont("C:/Windows/Fonts/msyh.ttc", 32)) {
-        LOGE("Failed to load font");
-        return -1;
-    }
     
     app.startActivity(new TestScreen());
     

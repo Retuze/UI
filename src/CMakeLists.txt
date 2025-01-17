@@ -16,6 +16,8 @@ add_library(simplegui STATIC ${SOURCES})
 target_include_directories(simplegui
     PUBLIC 
         ${CMAKE_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/_deps/freetype-src/include
+        ${CMAKE_SOURCE_DIR}/_deps/harfbuzz-src/include
 )
 
 if(WIN32)
@@ -32,6 +34,7 @@ endif()
 target_link_libraries(simplegui
     PUBLIC
         freetype
+        harfbuzz
     PRIVATE
         gdi32
         user32

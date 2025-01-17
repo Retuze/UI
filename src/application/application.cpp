@@ -2,7 +2,6 @@
 #include "graphics/ui_thread.h"
 #include "core/logger.h"
 #include "core/choreographer.h"
-#include "graphics/font_manager.h"
 #include <algorithm>
 #include <thread>
 #include <chrono>
@@ -175,16 +174,7 @@ void Application::initializeRenderSystem() {
 }
 
 void Application::initializeResourceSystem() {
-    // 初始化字体管理器
-    auto& fontManager = FontManager::getInstance();
-    if (!fontManager.initialize()) {
-        throw std::runtime_error("Failed to initialize FontManager");
-    }
-    
-    // 加载默认字体
-    if (!fontManager.loadFont("C:/Windows/Fonts/msyh.ttc", 32)) {
-        throw std::runtime_error("Failed to load default font");
-    }
+
 }
 
 void Application::onSystemReady() {

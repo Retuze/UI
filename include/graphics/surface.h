@@ -38,8 +38,6 @@ public:
     virtual PixelFormat getPixelFormat() const = 0;
     virtual int getBufferCount() const = 0;
     virtual bool isVSyncEnabled() const = 0;
-    virtual PixelLayout getPixelLayout() const = 0;
-    virtual BufferLayout getBufferLayout() const = 0;
     
     // 事件处理
     virtual bool pollEvent(Event& event) = 0;

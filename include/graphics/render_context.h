@@ -5,6 +5,7 @@
 #include "graphics/paint.h"
 #include "graphics/matrix.h"
 #include "graphics/path.h"
+#include "graphics/IFontRenderer.h"
 #include <stack>
 
 // 前向声明
@@ -66,7 +67,7 @@ private:
     Bitmap* currentBitmap = nullptr;
     std::stack<State> stateStack;
     State currentState;
-    std::unique_ptr<PixelWriter> pixelWriter;
+    std::unique_ptr<IFontRenderer> fontRenderer;
     
     // 辅助方法
     void applyState(const State& state);

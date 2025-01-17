@@ -6,6 +6,7 @@
 #include <mutex>
 #include <windows.h>
 #include <memory>
+#include <windowsx.h>
 
 class Win32Surface : public Surface {
 public:
@@ -62,6 +63,13 @@ private:
     // 同步相关
     std::mutex bufferMutex;
     std::condition_variable bufferAvailable;
+    
+    HMODULE dwmLib = nullptr;
+    typedef HRESULT (WINAPI *DwmFlushProc)();
+    typedef HRESULT (WINAPI *DwmIsCompositionEnabledProc)(BOOL*);
+    
+    DwmFlushProc DwmFlush = nullptr;
+    DwmIsCompositionEnabledProc DwmIsCompositionEnabled = nullptr;
     
     static ATOM registerClass();
     static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);

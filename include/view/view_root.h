@@ -9,6 +9,7 @@ public:
     
     void setView(View* view);
     void setSurface(Surface* surface) { mainSurface = surface; }
+    void setRenderContext(RenderContext* context) { renderContext = context; }
     
     void requestLayout();
     void performTraversals();
@@ -23,4 +24,5 @@ private:
     Surface* mainSurface = nullptr;
     bool layoutRequested = false;
     bool needsRedraw = false;
+    RenderContext* renderContext = nullptr;
 };

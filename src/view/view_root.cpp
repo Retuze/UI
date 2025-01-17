@@ -71,20 +71,17 @@ void ViewRoot::performLayout() {
 }
 
 void ViewRoot::performDraw() {
-    if (!mainSurface) {
+    if (!mainSurface || !renderContext) {
         return;
     }
     
-    // LOGI("Performing draw");
-    
-    // 清空背景为白色
-    mainSurface->clear();
+    renderContext->beginFrame(mainSurface);
+    renderContext->clear();
     
     // 绘制视图树
-    hostView->draw(*mainSurface);
+    hostView->draw(*renderContext);
     
-    // 提交绘制结果
-    mainSurface->present();
+    renderContext->endFrame();
 }
 
 void ViewRoot::invalidate() {
